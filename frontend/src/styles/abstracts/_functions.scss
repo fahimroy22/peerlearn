@@ -1,0 +1,13 @@
+@use "sass:math";
+
+// Convert px to rem (base 16px)
+@function rem($px) {
+  @return math.div($px, 16) * 1rem;
+}
+
+// Clamp a value between min and max with a fluid midpoint
+@function fluid($min, $max, $min-vw: 640px, $max-vw: 1280px) {
+  $slope: math.div($max - $min, $max-vw - $min-vw);
+  $intercept: $min - $slope * $min-vw;
+  @return clamp(#{$min}, #{$intercept} + #{$slope * 100}vw, #{$max});
+}

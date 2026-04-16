@@ -1,0 +1,42 @@
+@use "../abstracts" as *;
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  width: fit-content;
+}
+
+.tab-btn {
+  background: transparent;
+  color: $color-muted;
+  border: none;
+  box-shadow: none;
+  border-radius: $radius-sm;
+  padding: 9px 18px;
+  font-weight: 700;
+  font-size: 14px;
+  transition:
+    background $transition-base,
+    color $transition-base,
+    box-shadow $transition-base;
+
+  &:hover:not(.active) {
+    background: rgba(37, 99, 235, 0.06);
+    color: $color-primary;
+    transform: none;
+    box-shadow: none;
+  }
+
+  &.active {
+    background: linear-gradient(135deg, $color-primary, $color-primary-dark);
+    color: white;
+    box-shadow: $shadow-sm;
+    transform: none;
+  }
+}

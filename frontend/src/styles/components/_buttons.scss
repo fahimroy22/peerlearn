@@ -1,0 +1,44 @@
+@use "../abstracts" as *;
+
+// Secondary
+button.secondary {
+  background: #eef2f7;
+  color: $color-text;
+  border: 1px solid $color-border;
+  box-shadow: none;
+
+  &:hover:not(:disabled) {
+    background: #e4eaf4;
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+// Success
+button.success {
+  background: linear-gradient(135deg, $color-success, #15803d);
+  box-shadow: 0 8px 20px rgba(22, 163, 74, 0.18);
+
+  &:hover:not(:disabled) {
+    box-shadow: 0 14px 28px rgba(22, 163, 74, 0.24);
+  }
+}
+
+// Danger
+button.danger {
+  background: linear-gradient(135deg, $color-danger, #b91c1c);
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.18);
+
+  &:hover:not(:disabled) {
+    box-shadow: 0 14px 28px rgba(220, 38, 38, 0.24);
+  }
+}
+
+// Actions row
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  align-items: center;
+}

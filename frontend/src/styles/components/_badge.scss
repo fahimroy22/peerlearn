@@ -1,0 +1,38 @@
+@use "../abstracts" as *;
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: $radius-pill;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.badge-blue {
+  background: $color-primary-soft;
+  color: $color-primary-dark;
+}
+
+.badge-green {
+  background: $color-success-soft;
+  color: #166534;
+}
+
+.badge-yellow {
+  background: $color-warning-soft;
+  color: #92400e;
+}
+
+.badge-red {
+  background: $color-danger-soft;
+  color: #991b1b;
+}
+
+.badge-purple {
+  background: $color-secondary-soft;
+  color: #5b21b6;
+}

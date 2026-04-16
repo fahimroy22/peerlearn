@@ -1,0 +1,90 @@
+@use "../abstracts" as *;
+
+.page {
+  @include page-shell;
+}
+
+.page-title {
+  @include type-page-title;
+}
+
+.section-title {
+  @include type-section-title;
+}
+
+.page-with-savebar {
+  padding-bottom: 120px;
+}
+
+.listing-page-header {
+  margin-bottom: 26px;
+}
+
+.listing-page-subtitle {
+  max-width: 720px;
+  margin: -4px 0 0;
+  color: $color-muted;
+  line-height: 1.75;
+  font-size: 16px;
+}
+
+.home-section {
+  margin-top: 36px;
+}
+
+.home-section-header {
+  @include flex-between;
+  gap: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.section-eyebrow {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 6px 12px;
+  border-radius: $radius-pill;
+  background: rgba(37, 99, 235, 0.08);
+  color: $color-primary-dark;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.section-title-lg {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  color: $color-text;
+}
+
+.section-copy {
+  max-width: 520px;
+  margin: 0;
+  color: $color-muted;
+  line-height: 1.75;
+  font-size: 16px;
+}
+
+@include lg {
+  .section-title-lg {
+    font-size: 26px;
+  }
+}
+
+@include sm {
+  .page {
+    padding: 22px 16px 40px;
+  }
+
+  .page-title {
+    font-size: 32px;
+  }
+
+  .section-title-lg {
+    font-size: 22px;
+  }
+}

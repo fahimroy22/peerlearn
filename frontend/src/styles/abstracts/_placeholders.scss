@@ -1,0 +1,25 @@
+@use "./variables" as *;
+
+%text-muted {
+  color: $color-muted;
+}
+
+%label-uppercase {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $color-muted;
+}
+
+%page-container {
+  max-width: $container-page;
+  margin: 0 auto;
+  padding: 34px 22px 56px;
+}
+
+%truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1,0 +1,18 @@
+@use "../abstracts" as *;
+
+.skill-exchange-hero-note {
+  max-width: 760px;
+  color: $color-muted;
+  line-height: 1.7;
+}
+
+.skill-exchange-match-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: $radius-pill;
+  background: rgba(37, 99, 235, 0.08);
+  color: $color-primary-dark;
+  font-size: 12px;
+  font-weight: 800;
+}

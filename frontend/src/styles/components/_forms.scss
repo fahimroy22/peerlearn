@@ -1,0 +1,40 @@
+@use "../abstracts" as *;
+
+input,
+textarea,
+select {
+  @include input-base;
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  box-sizing: border-box;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #98a2b3;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  @include input-focus;
+}
+
+textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+select {
+  padding-right: 42px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%23667085' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  cursor: pointer;
+}
+
+.form-grid {
+  display: grid;
+  gap: 14px;
+}

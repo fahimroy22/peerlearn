@@ -1,0 +1,158 @@
+@use "./variables" as *;
+
+// =============================================================================
+// LAYOUT
+// =============================================================================
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+@mixin container($max-width: $container-page) {
+  width: 100%;
+  max-width: $max-width;
+  margin: 0 auto;
+}
+
+@mixin page-shell {
+  max-width: $container-page;
+  margin: 0 auto;
+  padding: 34px 22px 56px;
+}
+
+// =============================================================================
+// UI COMPONENTS
+// =============================================================================
+
+@mixin card {
+  background: $color-surface;
+  border: 1px solid rgba(217, 226, 240, 0.95);
+  border-radius: $radius-md;
+  box-shadow: $shadow-sm;
+  backdrop-filter: blur(12px);
+}
+
+@mixin card-hover {
+  transform: translateY(-3px);
+  box-shadow: $shadow-md;
+  border-color: #c9d8ef;
+}
+
+@mixin input-base {
+  width: 100%;
+  border: 1px solid $color-border;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: $radius-sm;
+  padding: 13px 14px;
+  color: $color-text;
+  outline: none;
+  transition:
+    border-color $transition-base,
+    box-shadow $transition-base,
+    background $transition-base;
+}
+
+@mixin input-focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10);
+  background: white;
+}
+
+@mixin button-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: $radius-sm;
+  padding: 11px 18px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition:
+    transform $transition-base,
+    box-shadow $transition-base,
+    opacity $transition-base,
+    background $transition-base;
+}
+
+@mixin button-primary {
+  @include button-base;
+  background: linear-gradient(135deg, $color-primary, $color-primary-dark);
+  color: white;
+  box-shadow: $shadow-sm;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: $shadow-md;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+}
+
+// =============================================================================
+// TYPOGRAPHY
+// =============================================================================
+
+@mixin type-page-title {
+  font-size: 42px;
+  line-height: 1.1;
+  margin: 0 0 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+@mixin type-section-title {
+  font-size: 24px;
+  line-height: 1.2;
+  margin: 0 0 16px;
+  font-weight: 700;
+}
+
+@mixin type-label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $color-muted;
+}
+
+// =============================================================================
+// RESPONSIVE
+// =============================================================================
+
+@mixin responsive-down($breakpoint) {
+  @media (max-width: $breakpoint) {
+    @content;
+  }
+}
+
+// Named breakpoint shortcuts
+@mixin xs  { @include responsive-down($bp-xs)  { @content; } }
+@mixin sm  { @include responsive-down($bp-sm)  { @content; } }
+@mixin md  { @include responsive-down($bp-md)  { @content; } }
+@mixin lg  { @include responsive-down($bp-lg)  { @content; } }
+@mixin xl  { @include responsive-down($bp-xl)  { @content; } }
+@mixin xxl { @include responsive-down($bp-2xl) { @content; } }
+
+// Legacy alias
+@mixin respond-down($bp) {
+  @include responsive-down($bp) { @content; }
+}

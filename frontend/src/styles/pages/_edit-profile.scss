@@ -1,0 +1,156 @@
+@use "../abstracts" as *;
+
+.edit-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  color: $color-text;
+}
+
+.edit-profile-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+.edit-profile-sidebar {
+  position: sticky;
+  top: 100px;
+}
+
+.edit-profile-preview-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.edit-profile-preview-name {
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: $color-text;
+}
+
+.edit-profile-preview-meta {
+  color: $color-muted;
+  line-height: 1.6;
+  margin-top: -6px;
+  font-size: 14px;
+}
+
+.edit-profile-preview-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.avatar-upload-box {
+  border: 1.5px dashed #bfd0ea;
+  background: rgba(248, 251, 255, 0.95);
+  border-radius: $radius-md;
+  padding: 14px;
+  transition: border-color $transition-base, background $transition-base;
+
+  &:focus-within {
+    border-color: $color-primary;
+    background: white;
+  }
+}
+
+.avatar-upload-hint {
+  margin-top: 8px;
+  color: $color-muted;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.text-counter {
+  margin-top: 6px;
+  text-align: right;
+  color: $color-muted;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+// Fixed save bar
+.save-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 80;
+  padding: 12px 20px 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(243, 246, 251, 0),
+    rgba(243, 246, 251, 0.9) 28%,
+    rgba(243, 246, 251, 0.98)
+  );
+  backdrop-filter: blur(14px);
+}
+
+.save-bar-content {
+  max-width: $container-page;
+  margin: 0 auto;
+  border: 1px solid rgba(217, 226, 240, 0.95);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: $shadow-md;
+  border-radius: $radius-lg;
+  padding: 14px 18px;
+  @include flex-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.save-bar-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: $color-text;
+}
+
+.save-bar-subtitle {
+  margin-top: 3px;
+  color: $color-muted;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.save-bar-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@include lg {
+  .edit-profile-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .edit-profile-sidebar {
+    position: static;
+  }
+}
+
+@include sm {
+  .save-bar {
+    padding: 8px 12px 12px;
+  }
+
+  .save-bar-content {
+    padding: 12px 14px;
+  }
+
+  .save-bar-actions {
+    width: 100%;
+
+    a,
+    button,
+    a button,
+    > button {
+      width: 100%;
+    }
+  }
+}

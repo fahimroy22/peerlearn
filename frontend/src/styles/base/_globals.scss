@@ -1,0 +1,88 @@
+@use "../abstracts" as *;
+
+.label {
+  font-weight: 700;
+  color: $color-text;
+}
+
+.muted {
+  color: $color-muted;
+}
+
+.inline-link {
+  font-weight: 700;
+  color: $color-primary;
+  transition: color $transition-base, text-decoration-color $transition-base;
+
+  &:hover {
+    text-decoration: underline;
+    color: $color-primary-dark;
+  }
+}
+
+.empty-state {
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px dashed $color-border;
+  border-radius: $radius-md;
+  color: $color-muted;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.source-box {
+  border-radius: $radius-sm;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.source-normal {
+  background: $color-primary-soft;
+  color: $color-primary-dark;
+}
+
+.source-auto {
+  background: $color-success-soft;
+  color: #166534;
+}
+
+// Join Call button — used in Sessions and Chat
+.btn-join-call {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, $color-success, #15803d);
+  color: white;
+  border-radius: $radius-sm;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(22, 163, 74, 0.22);
+  transition:
+    transform $transition-base,
+    box-shadow $transition-base,
+    background $transition-base;
+
+  &::before {
+    content: "▶";
+    font-size: 11px;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 28px rgba(22, 163, 74, 0.28);
+    background: linear-gradient(135deg, #15803d, #166534);
+    text-decoration: none;
+    color: white;
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}

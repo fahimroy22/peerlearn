@@ -1,0 +1,342 @@
+@use "../abstracts" as *;
+
+.listing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.listing-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid $color-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
+  padding: 22px;
+  transition:
+    transform $transition-base,
+    box-shadow $transition-base,
+    border-color $transition-base;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: $shadow-md;
+    border-color: #c9d8ef;
+  }
+}
+
+.listing-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.listing-skill {
+  margin: 0 0 6px;
+  font-size: 26px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+  color: $color-text;
+}
+
+.listing-desc {
+  margin: 0;
+  color: $color-muted;
+  line-height: 1.65;
+  font-size: 15px;
+}
+
+.listing-chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.listing-highlight-row,
+.listing-rating-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.listing-highlight,
+.listing-rating-box {
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0.95), rgba(241, 246, 255, 0.95));
+  border: 1px solid $color-border;
+  border-radius: $radius-md;
+  padding: 14px;
+}
+
+.listing-highlight-label,
+.listing-meta-label {
+  @extend %label-uppercase;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.listing-highlight-value,
+.listing-rating-value {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  color: $color-text;
+  word-break: break-word;
+}
+
+.listing-rating-value {
+  margin-top: 4px;
+  font-size: 20px;
+  color: $color-primary-dark;
+}
+
+.listing-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, $color-border, transparent);
+  margin: 16px 0;
+}
+
+.listing-meta-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.listing-meta-item {
+  display: grid;
+  gap: 3px;
+}
+
+.listing-meta-value {
+  color: $color-text;
+  line-height: 1.6;
+  word-break: break-word;
+  font-size: 15px;
+}
+
+.listing-action-row {
+  margin-top: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.listing-action-hint,
+.listing-search-meta {
+  color: $color-muted;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.listing-guidance-box {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: $radius-sm;
+  background: rgba(37, 99, 235, 0.06);
+  color: $color-primary-dark;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.listing-offer-box {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid $color-border;
+}
+
+.listing-offer-title {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+@include md {
+  .listing-card-top {
+    flex-direction: column;
+  }
+
+  .listing-chip-group {
+    justify-content: flex-start;
+  }
+
+  .listing-highlight-row,
+  .listing-rating-row {
+    grid-template-columns: 1fr;
+  }
+
+  .listing-skill {
+    font-size: 22px;
+  }
+}
+.listing-card {
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      circle at top right,
+      rgba(37, 99, 235, 0.05),
+      transparent 34%
+    );
+    pointer-events: none;
+  }
+
+  > * {
+    position: relative;
+  }
+}
+
+.listing-chip-group {
+  align-items: flex-start;
+}
+
+.listing-rating-row {
+  margin-top: 14px;
+}
+
+.listing-rating-box {
+  display: grid;
+  gap: 4px;
+}
+
+.listing-rating-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.listing-trust-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.listing-trust-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: $radius-pill;
+  background: rgba(37, 99, 235, 0.08);
+  color: $color-primary-dark;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.listing-availability-card {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: $radius-md;
+  border: 1px solid rgba(217, 226, 240, 0.92);
+  background: rgba(248, 251, 255, 0.88);
+}
+
+.listing-availability-copy {
+  margin: 6px 0 0;
+  color: $color-text;
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+.listing-tutor-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.listing-tutor-name {
+  font-size: 17px;
+  font-weight: 800;
+  color: $color-text;
+}
+
+.listing-badge-top {
+  background: rgba(220, 252, 231, 0.95);
+  color: #166534;
+  border: 1px solid rgba(134, 239, 172, 0.95);
+}
+
+.listing-badge-excellent {
+  background: rgba(219, 234, 254, 0.95);
+  color: #1d4ed8;
+  border: 1px solid rgba(147, 197, 253, 0.95);
+}
+
+.listing-badge-trusted {
+  background: rgba(254, 249, 195, 0.95);
+  color: #854d0e;
+  border: 1px solid rgba(253, 224, 71, 0.95);
+}
+
+.listing-badge-beginner {
+  background: rgba(241, 245, 249, 0.95);
+  color: #475569;
+  border: 1px solid rgba(203, 213, 225, 0.95);
+}
+/* ===== MODAL ===== */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.55); // dark blur feel
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+.modal-box {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 26px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  animation: modalFade 0.2s ease;
+}
+
+@keyframes modalFade {
+  from {
+    transform: translateY(20px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 10px;
+  color: #111827;
+}
+
+.modal-message {
+  font-size: 15px;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.modal-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

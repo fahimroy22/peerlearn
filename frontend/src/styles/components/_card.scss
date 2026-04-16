@@ -1,0 +1,32 @@
+@use "../abstracts" as *;
+
+.card {
+  @include card;
+  padding: 22px;
+  margin-bottom: 18px;
+  transition:
+    box-shadow $transition-base,
+    border-color $transition-base,
+    transform $transition-base;
+}
+
+.card-title {
+  margin: 0 0 16px;
+  font-size: rem(22);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: $color-text;
+}
+
+.review-card {
+  border: 1px solid $color-border;
+  background: rgba(248, 251, 255, 0.92);
+  border-radius: $radius-md;
+  padding: 18px;
+  margin-top: 14px;
+  transition: box-shadow $transition-base;
+
+  &:hover {
+    box-shadow: $shadow-xs;
+  }
+}

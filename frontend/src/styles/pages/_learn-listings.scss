@@ -1,0 +1,26 @@
+@use "../abstracts" as *;
+
+.learn-listings-search-card {
+  margin-bottom: 18px;
+}
+
+.learn-listings-search-title {
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+
+.learn-listings-offer-fields {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid $color-border;
+}
+
+.learn-listings-my-card {
+  margin-bottom: 18px;
+}
+
+.learn-listings-section {
+  margin-top: 10px;
+}

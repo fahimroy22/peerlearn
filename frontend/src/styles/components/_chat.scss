@@ -1,0 +1,711 @@
+@use "../abstracts" as *;
+
+// =============================================================================
+// LAYOUT
+// =============================================================================
+
+.ww-layout {
+  @include container;
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: calc(100vh - 120px);
+  height: calc(100vh - 120px);
+  border-radius: $radius-lg;
+  overflow: hidden;
+  border: 1px solid rgba(217, 226, 240, 0.95);
+  box-shadow: $shadow-md;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  min-width: 0;
+}
+
+// =============================================================================
+// SIDEBAR
+// =============================================================================
+
+.ww-sidebar {
+  background: linear-gradient(180deg, #f8fbff 0%, #f4f7fc 100%);
+  border-right: 1px solid rgba(217, 226, 240, 0.95);
+  padding: 22px 16px;
+  @include flex-col;
+  gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ww-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 6px;
+}
+
+.ww-avatar,
+.ww-avatar-lg {
+  border-radius: $radius-pill;
+  background: linear-gradient(135deg, $color-primary, $color-primary-dark);
+  color: white;
+  @include flex-center;
+  font-weight: 800;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
+  flex-shrink: 0;
+}
+
+.ww-avatar-lg {
+  width: 54px;
+  height: 54px;
+  font-size: 22px;
+}
+
+.ww-avatar {
+  width: 42px;
+  height: 42px;
+  font-size: 17px;
+}
+
+.ww-sidebar-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: $color-text;
+  line-height: 1.1;
+}
+
+.ww-sidebar-subtitle {
+  margin-top: 4px;
+  color: $color-muted;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ww-sidebar-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(217, 226, 240, 0.95);
+  border-radius: $radius-md;
+  padding: 14px;
+  box-shadow: $shadow-xs;
+}
+
+.ww-info-label {
+  @extend %label-uppercase;
+  margin-bottom: 7px;
+}
+
+.ww-sidebar-note {
+  margin-top: 6px;
+  padding: 14px;
+  border-radius: $radius-md;
+  border: 1px solid rgba(217, 226, 240, 0.95);
+  background: rgba(224, 236, 255, 0.35);
+  color: $color-muted;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.ww-skill-card {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(248, 251, 255, 0.96)
+  );
+}
+
+.ww-skill-name {
+  font-size: 16px;
+  font-weight: 800;
+  color: $color-text;
+  line-height: 1.35;
+}
+
+.ww-skill-description {
+  margin-top: 8px;
+  color: $color-muted;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+// =============================================================================
+// CHAT PANEL
+// =============================================================================
+
+.ww-chat-panel {
+  @include flex-col;
+  min-width: 0;
+  min-height: 0;
+  background: #f8fafc;
+}
+
+.ww-chat-header {
+  @include flex-between;
+  gap: 16px;
+  padding: 18px 22px;
+  background: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid rgba(217, 226, 240, 0.7);
+  backdrop-filter: blur(12px);
+  flex-shrink: 0;
+}
+
+.ww-chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ww-chat-name {
+  font-size: 20px;
+  font-weight: 800;
+  color: $color-text;
+  line-height: 1.1;
+}
+
+.ww-chat-id {
+  margin-top: 4px;
+  font-size: 13px;
+  color: $color-muted;
+  line-height: 1.45;
+}
+
+.ww-chat-status {
+  margin-top: 4px;
+  font-size: 13px;
+  color: $color-muted;
+}
+
+// =============================================================================
+// CHAT BODY
+// =============================================================================
+
+.ww-chat-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 18px 12px;
+  background:
+    linear-gradient(rgba(247, 243, 238, 0.9), rgba(247, 243, 238, 0.9)),
+    #f2ece5;
+  scroll-behavior: smooth;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.12);
+    border-radius: $radius-pill;
+  }
+}
+
+.ww-row {
+  display: flex;
+  margin-bottom: 14px;
+
+  &.own {
+    justify-content: flex-end;
+  }
+
+  &.other {
+    justify-content: flex-start;
+  }
+}
+
+.ww-bubble {
+  max-width: min(88%, 980px);
+  padding: 11px 14px 9px;
+  border-radius: 18px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.05);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+
+  &.own {
+    background: linear-gradient(160deg, #d4f7ca, #c3f0b8);
+    border-top-right-radius: 6px;
+  }
+
+  &.other {
+    background: rgba(255, 255, 255, 0.97);
+    border-top-left-radius: 6px;
+  }
+}
+
+.ww-sender {
+  font-size: 12px;
+  font-weight: 800;
+  color: $color-primary;
+  margin-bottom: 5px;
+  letter-spacing: 0.01em;
+}
+
+.ww-text {
+  white-space: pre-wrap;
+  color: #172033;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.ww-time {
+  margin-top: 6px;
+  font-size: 11px;
+  color: $color-muted;
+  text-align: right;
+}
+
+.ww-read-status {
+  margin-left: 4px;
+  color: #98a2b3;
+  font-weight: 700;
+
+  &.seen {
+    color: $color-primary;
+  }
+}
+
+.ww-typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 10px 16px;
+  border-radius: $radius-pill;
+  background: rgba(255, 255, 255, 0.94);
+  width: fit-content;
+  box-shadow: $shadow-xs;
+  border: 1px solid rgba(217, 226, 240, 0.95);
+}
+
+// =============================================================================
+// ATTACHMENTS
+// =============================================================================
+
+.chat-attachment-image-link {
+  display: block;
+  margin-top: 10px;
+}
+
+.chat-attachment-image {
+  width: 100%;
+  max-width: 260px;
+  max-height: 300px;
+  object-fit: cover;
+  border-radius: $radius-sm;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.chat-attachment-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: $radius-md;
+  background: rgba(255, 255, 255, 0.8);
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  min-width: 200px;
+  max-width: 340px;
+  transition: background $transition-base;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.97);
+  }
+}
+
+.chat-attachment-file-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: $radius-xs;
+  background: rgba(37, 99, 235, 0.1);
+  @include flex-center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.chat-attachment-file-name {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.4;
+  color: $color-text;
+  word-break: break-word;
+}
+
+.chat-attachment-file-meta {
+  font-size: 12px;
+  color: $color-muted;
+  margin-top: 3px;
+}
+
+// =============================================================================
+// COMPOSER
+// =============================================================================
+
+.ww-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.92);
+  border-top: 1px solid rgba(217, 226, 240, 0.95);
+  backdrop-filter: blur(12px);
+  flex-shrink: 0;
+
+  textarea {
+    flex: 1;
+    min-height: 56px;
+    max-height: 140px;
+    resize: none;
+    border-radius: $radius-lg;
+    padding: 14px 18px;
+    border: 1px solid rgba(217, 226, 240, 0.95);
+    background: white;
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  button[type="submit"] {
+    min-width: 96px;
+    height: 56px;
+    border-radius: $radius-pill;
+    box-shadow: none;
+    flex-shrink: 0;
+  }
+}
+
+.ww-attach-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ww-attach-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: $radius-pill;
+  background: white;
+  border: 1px solid rgba(217, 226, 240, 0.95);
+  font-size: 18px;
+  color: $color-muted;
+  box-shadow: none;
+  padding: 0;
+
+  &:hover {
+    transform: none;
+    box-shadow: none;
+    background: #f3f6fb;
+    color: $color-primary;
+  }
+}
+
+.ww-attach-menu {
+  position: absolute;
+  bottom: 68px;
+  left: 0;
+  min-width: 180px;
+  background: white;
+  border: 1px solid rgba(217, 226, 240, 0.95);
+  border-radius: $radius-md;
+  padding: 6px;
+  box-shadow: $shadow-md;
+  z-index: 20;
+  display: grid;
+  gap: 4px;
+}
+
+.ww-attach-menu-item {
+  width: 100%;
+  background: transparent;
+  color: $color-text;
+  border: none;
+  box-shadow: none;
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: $radius-xs;
+  font-weight: 600;
+  font-size: 14px;
+
+  &:hover {
+    background: $color-surface-soft;
+    transform: none;
+    box-shadow: none;
+    color: $color-primary;
+  }
+}
+
+.ww-selected-file {
+  @include flex-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #f8fafc;
+  border-top: 1px solid rgba(217, 226, 240, 0.95);
+  font-size: 14px;
+  color: $color-text;
+
+  button {
+    background: transparent;
+    color: $color-danger;
+    box-shadow: none;
+    padding: 0;
+    min-width: auto;
+    height: auto;
+    font-size: 13px;
+
+    &:hover {
+      transform: none;
+      box-shadow: none;
+      background: transparent;
+    }
+  }
+}
+
+// =============================================================================
+// GOOGLE MEET HELPERS
+// =============================================================================
+
+.ww-sidebar-card .btn-join-call {
+  margin-top: 8px;
+}
+
+.ww-chat-header .btn-join-call {
+  flex-shrink: 0;
+}
+
+.ww-info-label--meet {
+  color: $color-muted;
+}
+
+.ww-sidebar-card--meet {
+  background: rgba(248, 251, 255, 0.72);
+}
+
+.ww-meet-unavailable,
+.ww-chat-header-meet-note {
+  color: #7b8794;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+// =============================================================================
+// RESPONSIVE
+// =============================================================================
+
+@include xl {
+  .ww-layout {
+    grid-template-columns: 220px 1fr;
+    height: calc(100vh - 130px);
+    min-height: 620px;
+  }
+}
+
+@media (max-width: 860px) {
+  .ww-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
+  }
+
+  .ww-sidebar {
+    display: none;
+  }
+
+  .ww-chat-panel {
+    min-height: calc(100vh - 130px);
+  }
+
+  .ww-bubble {
+    max-width: 88%;
+  }
+}
+
+@include md {
+  .ww-chat-header {
+    gap: 12px;
+  }
+
+  .ww-chat-header .btn-join-call {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@include sm {
+  .ww-layout {
+    margin-top: 16px;
+    border-radius: $radius-lg;
+  }
+
+  .ww-chat-header {
+    padding: 13px 14px;
+  }
+
+  .ww-chat-body {
+    padding: 14px 12px 12px;
+  }
+
+  .ww-bubble {
+    max-width: 94%;
+    padding: 10px 12px 8px;
+  }
+
+  .ww-composer {
+    padding: 10px 12px;
+    gap: 8px;
+
+    textarea {
+      min-height: 48px;
+    }
+
+    button[type="submit"] {
+      min-width: 80px;
+      height: 48px;
+    }
+  }
+
+  .ww-attach-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  .chat-attachment-image {
+    max-width: 200px;
+  }
+
+  .chat-attachment-file {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+.ww-chat-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 18px 12px;
+  background:
+    linear-gradient(rgba(247, 243, 238, 0.92), rgba(247, 243, 238, 0.92)),
+    radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.04) 1px, transparent 0);
+  background-size: auto, 18px 18px;
+  animation: ww-chat-bg-drift 18s linear infinite;
+  scroll-behavior: smooth;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(15, 23, 42, 0.12);
+    border-radius: $radius-pill;
+  }
+}
+
+@keyframes ww-chat-bg-drift {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  100% {
+    background-position: 0 0, 18px 18px;
+  }
+}
+
+.ww-day-separator {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0 14px;
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    border-radius: $radius-pill;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(217, 226, 240, 0.92);
+    color: $color-muted;
+    font-size: 12px;
+    font-weight: 800;
+    box-shadow: $shadow-xs;
+  }
+}
+
+.ww-unread-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0 14px;
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(37, 99, 235, 0.18);
+  }
+
+  span {
+    padding: 4px 10px;
+    border-radius: $radius-pill;
+    background: rgba(37, 99, 235, 0.1);
+    color: $color-primary-dark;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+}
+
+.ww-row {
+  display: flex;
+  margin-bottom: 14px;
+
+  &.own {
+    justify-content: flex-end;
+  }
+
+  &.other {
+    justify-content: flex-start;
+  }
+
+  &.grouped-top {
+    margin-top: -6px;
+  }
+
+  &.grouped-bottom {
+    margin-bottom: 8px;
+  }
+}
+
+.ww-bubble {
+  max-width: min(88%, 980px);
+  padding: 11px 14px 9px;
+  border-radius: 18px;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.05);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  }
+
+  &.own {
+    background: linear-gradient(160deg, #d4f7ca, #c3f0b8);
+    border-top-right-radius: 6px;
+  }
+
+  &.other {
+    background: rgba(255, 255, 255, 0.97);
+    border-top-left-radius: 6px;
+  }
+}
