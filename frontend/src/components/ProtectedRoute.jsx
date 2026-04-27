@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children, adminBlocked = false }) {
   let storedUser = null;
 
   try {
@@ -17,6 +17,10 @@ function ProtectedRoute({ children }) {
 
   if (!storedUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (adminBlocked && storedUser.isAdmin) {
+    return <Navigate to="/admin" replace />;
   }
 
   return children;

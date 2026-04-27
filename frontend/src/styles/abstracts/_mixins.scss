@@ -28,6 +28,7 @@
 }
 
 @mixin page-shell {
+  width: 100%;
   max-width: $container-page;
   margin: 0 auto;
   padding: 34px 22px 56px;
@@ -87,6 +88,8 @@
     box-shadow $transition-base,
     opacity $transition-base,
     background $transition-base;
+  max-width: 100%;
+  text-align: center;
 }
 
 @mixin button-primary {
@@ -144,7 +147,6 @@
   }
 }
 
-// Named breakpoint shortcuts
 @mixin xs  { @include responsive-down($bp-xs)  { @content; } }
 @mixin sm  { @include responsive-down($bp-sm)  { @content; } }
 @mixin md  { @include responsive-down($bp-md)  { @content; } }
@@ -152,7 +154,6 @@
 @mixin xl  { @include responsive-down($bp-xl)  { @content; } }
 @mixin xxl { @include responsive-down($bp-2xl) { @content; } }
 
-// Legacy alias
 @mixin respond-down($bp) {
   @include responsive-down($bp) { @content; }
 }

@@ -42,6 +42,33 @@ function Dashboard() {
   }, []);
 
   const currentUser = profile || user;
+    const isAdmin = Boolean(currentUser?.isAdmin);
+
+  if (isAdmin) {
+    return (
+      <div className="page dashboard-page">
+        <section className="dashboard-shell dashboard-shell-final">
+          <section className="dashboard-welcome-strip">
+            <div className="dashboard-welcome-copy">
+              <div className="section-eyebrow">Admin Panel</div>
+              <h1 className="dashboard-title">
+                Welcome back, {currentUser?.name || "Admin"}
+              </h1>
+              <p className="dashboard-subtitle">
+                This account is an admin account. Use the admin dashboard to manage the platform.
+              </p>
+            </div>
+
+            <div className="dashboard-welcome-actions">
+              <Link to="/admin">
+                <button>Go to Admin Dashboard</button>
+              </Link>
+            </div>
+          </section>
+        </section>
+      </div>
+    );
+  };
   const isTutor = currentUser?.role === "tutor";
 
   const averageRating =

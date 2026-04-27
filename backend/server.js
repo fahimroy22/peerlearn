@@ -26,6 +26,8 @@ const exchangeRequestRoutes = require("./routes/exchangeRequestRoutes");
 const exchangeConversationRoutes = require("./routes/exchangeConversationRoutes");
 const exchangeMessageRoutes = require("./routes/exchangeMessageRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const supportRoutes = require("./routes/supportRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
@@ -153,6 +155,8 @@ app.use("/api/exchange-requests", exchangeRequestRoutes);
 app.use("/api/exchange-conversations", exchangeConversationRoutes);
 app.use("/api/exchange-messages", exchangeMessageRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/support", supportRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

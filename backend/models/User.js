@@ -63,11 +63,36 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    // marketplace role only
     role: {
       type: String,
-      enum: ["learner", "tutor", "admin"],
+      enum: ["learner", "tutor"],
       default: "learner",
     },
+
+    // separate staff/admin access
+    isAdmin: {
+      type: Boolean,
+      default: false,
+    },
+
+    accountStatus: {
+      type: String,
+      enum: ["active", "blocked"],
+      default: "active",
+    },
+    blockedReason: {
+  type: String,
+  default: "",
+  trim: true,
+},
+
+blockedAt: {
+  type: Date,
+  default: null,
+},
+
     activeSessionToken: {
       type: String,
       default: null,

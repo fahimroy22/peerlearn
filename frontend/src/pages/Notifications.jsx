@@ -49,7 +49,7 @@ function Notifications() {
     };
   }, [user?._id]);
 
-  const getNotificationVisual = (type) => {
+    const getNotificationVisual = (type) => {
     const map = {
       session_message: {
         icon: "💬",
@@ -91,11 +91,25 @@ function Notifications() {
         label: "Exchange message",
         className: "is-exchange-message",
       },
+      support_ticket_created: {
+        icon: "🆘",
+        label: "Support ticket",
+        className: "is-request-message",
+      },
+      support_reply: {
+        icon: "💬",
+        label: "Support reply",
+        className: "is-session-message",
+      },
+      support_user_reply: {
+        icon: "📩",
+        label: "Support update",
+        className: "is-learn-request",
+      },
     };
 
     return map[type] || { icon: "🔔", label: "Notification", className: "is-default" };
   };
-
   const formatNotificationTime = (value) => {
     if (!value) return "";
     const date = new Date(value);

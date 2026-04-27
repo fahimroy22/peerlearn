@@ -81,8 +81,29 @@ const skillExchangeSchema = new mongoose.Schema(
     },
     status: {
       type: String,
+      enum: ["open", "matched", "closed", "hidden"],
+      default: "open",
+      index: true,
+    },
+    previousStatus: {
+      type: String,
       enum: ["open", "matched", "closed"],
       default: "open",
+    },
+    adminNote: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 500,
+    },
+    hiddenBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    hiddenAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

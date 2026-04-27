@@ -9,13 +9,28 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  width: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  width: 100%;
 }
 
 img,
 video,
-svg {
+svg,
+canvas {
   display: block;
   max-width: 100%;
+  height: auto;
 }
 
 p,
@@ -26,4 +41,12 @@ h4,
 h5,
 h6 {
   overflow-wrap: break-word;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  max-width: 100%;
 }

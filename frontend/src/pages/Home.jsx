@@ -1,308 +1,311 @@
 import { Link } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 import useAuth from "../context/useAuth";
 
-function Home() {
+/* ── IntersectionObserver reveal hook ── */
+function useReveal(threshold = 0.12) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return [ref, visible];
+}
+
+/* ── Animated counter ── */
+function Counter({ to, suffix = "" }) {
+  const [val, setVal] = useState(0);
+  const [ref, visible] = useReveal(0.3);
+  useEffect(() => {
+    if (!visible) return;
+    let cur = 0;
+    const step = Math.max(1, Math.ceil(to / 55));
+    const id = setInterval(() => {
+      cur += step;
+      if (cur >= to) { setVal(to); clearInterval(id); }
+      else setVal(cur);
+    }, 18);
+    return () => clearInterval(id);
+  }, [visible, to]);
+  return <span ref={ref}>{val}{suffix}</span>;
+}
+
+/* ── Tilt card ── */
+function TiltCard({ children, className, style }) {
+  const ref = useRef(null);
+  const onMove = (e) => {
+    const r = ref.current.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - 0.5;
+    const y = (e.clientY - r.top) / r.height - 0.5;
+    ref.current.style.transform = `perspective(800px) rotateY(${x * 5}deg) rotateX(${-y * 5}deg) translateZ(4px)`;
+  };
+  const onLeave = () => { ref.current.style.transform = ""; };
+  return (
+    <div ref={ref} className={className} style={style} onMouseMove={onMove} onMouseLeave={onLeave}>
+      {children}
+    </div>
+  );
+}
+
+export default function Home() {
   const { user } = useAuth();
+  const [statsRef, statsVisible] = useReveal();
+  const [featRef,  featVisible]  = useReveal();
+  const [rolesRef, rolesVisible] = useReveal();
+  const [stepsRef, stepsVisible] = useReveal();
+  const [ctaRef,   ctaVisible]   = useReveal();
 
   return (
     <div className="page home-page">
 
-      {/* ===================== HERO ===================== */}
-      <section className="hero-commercial">
-        <div className="hero-commercial-shell">
-          <div className="hero-commercial-grid">
+      {/* ══════════ HERO ══════════ */}
+      <section className="hl-hero">
+        <div className="hl-blob hl-blob-a" />
+        <div className="hl-blob hl-blob-b" />
+        <div className="hl-blob hl-blob-c" />
 
-            {/* Left — visual */}
-            <div className="hero-visual">
-              <div className="hero-visual-stage">
-                <div className="hero-shape hero-shape-blue" />
-                <div className="hero-shape hero-shape-yellow" />
-                <div className="hero-shape hero-shape-purple" />
-
-                <div className="hero-side-copy hero-side-copy-left">
-                  organized learning flow
-                </div>
-                <div className="hero-side-copy hero-side-copy-right">
-                  trusted sessions
-                </div>
-
-                <div className="hero-visual-card">
-                  <div className="hero-visual-logo">PL</div>
-                  <div className="hero-visual-line hero-visual-line-lg" />
-                  <div className="hero-visual-line" />
-                  <div className="hero-visual-line hero-visual-line-sm" />
-                </div>
-
-                <div className="hero-floating-card hero-floating-card-top">
-                  <span className="hero-floating-label">Verified tutors</span>
-                  <strong>Find trusted help faster</strong>
-                </div>
-
-                <div className="hero-floating-card hero-floating-card-bottom">
-                  <span className="hero-floating-label">Live chat</span>
-                  <strong>Talk before booking</strong>
-                </div>
-              </div>
-            </div>
-
-            {/* Right — copy */}
-            <div className="hero-content-commercial">
-              <div className="hero-kicker">
-                Peer-to-peer learning, made structured
-              </div>
-
-              <h1>
-                Learn smarter with tutors, direct chat, and structured sessions.
-              </h1>
-
-              <p>
-                PeerLearn helps students discover tutors, compare listings, chat in
-                real time, schedule sessions, and build trust through verified
-                reviews — all in one clean workspace.
-              </p>
-
-              <div className="hero-actions-commercial">
-                {user ? (
-                  <>
-                    <Link to="/listings">
-                      <button className="hero-primary">Explore Tutors</button>
-                    </Link>
-                    <Link to="/learn-listings">
-                      <button className="hero-secondary">Post Learning Need</button>
-                    </Link>
-                  </>
-                ) : (
-                  <>
-                    <Link to="/register">
-                      <button className="hero-primary">Get Started</button>
-                    </Link>
-                    <Link to="/login">
-                      <button className="hero-secondary">Sign In</button>
-                    </Link>
-                  </>
-                )}
-              </div>
-            </div>
-
+        <div className="hl-hero-inner">
+          <div className="hl-badge">
+            <span className="hl-badge-ping" />
+            Peer-to-peer · Live chat · Verified tutors
           </div>
-        </div>
-      </section>
 
-      {/* ===================== FEATURES ===================== */}
-      <section className="home-section">
-        <div className="home-section-header home-section-header-split">
-          <div>
-            <div className="section-eyebrow">Why students like it</div>
-            <h2 className="section-title-lg">Built to feel clean, fast, and reliable</h2>
-          </div>
-          <p className="section-copy section-copy-wide">
-            Instead of scattered chats and manual coordination, PeerLearn gives both
-            learners and tutors one polished system for discovery, communication,
-            scheduling, and reputation.
+          <h1 className="hl-headline">
+            <span className="hl-hl-l1">Learn from</span>
+            <em className="hl-hl-em">those who</em>
+            <span className="hl-hl-l3">actually know.</span>
+          </h1>
+
+          <p className="hl-sub">
+            Discover tutors, book sessions, and build academic momentum — without the noise.
           </p>
+
+          <div className="hl-hero-cta">
+            {user ? (
+              <>
+                <Link to="/listings">
+                  <button className="hl-btn-primary">Explore Tutors</button>
+                </Link>
+                <Link to="/dashboard">
+                  <button className="hl-btn-outline">Dashboard →</button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/register">
+                  <button className="hl-btn-primary">Get Started Free</button>
+                </Link>
+                <Link to="/login">
+                  <button className="hl-btn-outline">Sign In →</button>
+                </Link>
+              </>
+            )}
+          </div>
+
+          {/* floating trust pills */}
+          <div className="hl-pill hl-pill-a">
+            <span className="hl-dot hl-dot-green" />Session live
+          </div>
+          <div className="hl-pill hl-pill-b">
+            <span className="hl-dot hl-dot-amber" />4.9 avg rating
+          </div>
+          <div className="hl-pill hl-pill-c">
+            <span className="hl-dot hl-dot-blue" />Verified ✓
+          </div>
         </div>
 
-        <div className="grid grid-3">
-          <div className="feature-card-clean">
-            <div className="feature-icon">🔎</div>
-            <h3>Discover tutors faster</h3>
-            <p>Compare skills, ratings, teaching style, and pricing before reaching out.</p>
-          </div>
-
-          <div className="feature-card-clean">
-            <div className="feature-icon">💬</div>
-            <h3>Chat with confidence</h3>
-            <p>Ask questions, align expectations, and keep communication in one place.</p>
-          </div>
-
-          <div className="feature-card-clean">
-            <div className="feature-icon">📅</div>
-            <h3>Manage sessions cleanly</h3>
-            <p>Track active sessions, changes, completions, and reviews without confusion.</p>
-          </div>
+        <div className="hl-scroll-cue">
+          <div className="hl-scroll-track"><div className="hl-scroll-dot" /></div>
+          <span>scroll</span>
         </div>
       </section>
 
-      {/* ===================== ROLE PANELS ===================== */}
-      <section className="home-section">
-        <div className="home-section-header">
-          <div>
-            <div className="section-eyebrow">For both sides</div>
-            <h2 className="section-title-lg">A polished experience for learners and tutors</h2>
-          </div>
+      {/* ══════════ STATS ══════════ */}
+      <div ref={statsRef} className={`hl-stats-wrap ${statsVisible ? "hl-in" : ""}`}>
+        <div className="hl-stats-band">
+          {[
+            { val: 20, suffix: "+", label: "Active Tutors" },
+            { val: 98,  suffix: "%", label: "Session Satisfaction" },
+            { val: 1,  suffix: "k", label: "Messages Sent" },
+            { val: 200, suffix: "+", label: "Sessions Booked" },
+          ].map(({ val, suffix, label }, i) => (
+            <div key={i} className="hl-stat" style={{ "--i": i }}>
+              <div className="hl-stat-num">
+                {statsVisible ? <Counter to={val} suffix={suffix} /> : `0${suffix}`}
+              </div>
+              <div className="hl-stat-label">{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ══════════ FEATURES ══════════ */}
+      <section ref={featRef} className={`hl-section ${featVisible ? "hl-in" : ""}`}>
+        <div className="hl-section-head">
+          <span className="hl-eyebrow">What you get</span>
+          <h2 className="hl-section-title">Everything in one place</h2>
         </div>
 
-        <div className="grid grid-2">
-          <div className="role-panel-soft-blue">
-            <div className="role-panel-badge">For Learners</div>
-            <h3>Find the right tutor without friction</h3>
-            <p>
-              Browse tutor listings, compare trust signals, send requests, and manage
-              your learning journey from one dashboard.
-            </p>
-            <ul className="home-list">
-              <li>Search tutor listings by skill and level</li>
-              <li>Open profiles before making decisions</li>
-              <li>Chat before confirming a session</li>
-              <li>Track requests and feedback clearly</li>
+        <div className="hl-feat-grid">
+          {[
+            { icon: "🔎", title: "Smart Discovery",  body: "Filter tutors by subject, level, and rating. Find the right match fast.",  color: "#2563eb" },
+            { icon: "💬", title: "Live Chat",        body: "Talk before you book. Align expectations with real-time messaging.",        color: "#d97706" },
+            { icon: "📅", title: "Session Flow",     body: "Track bookings, completions, and feedback in one clean dashboard.",        color: "#059669" },
+            { icon: "⭐", title: "Verified Reviews", body: "Every completed session earns trust. Build your reputation over time.",     color: "#7c3aed" },
+          ].map(({ icon, title, body, color }, i) => (
+            <TiltCard key={i} className="hl-feat-card" style={{ "--i": i, "--ac": color }}>
+              <div className="hl-feat-icon" style={{ background: color + "15", color }}>{icon}</div>
+              <h3>{title}</h3>
+              <p>{body}</p>
+              <div className="hl-feat-accent-bar" style={{ background: color }} />
+            </TiltCard>
+          ))}
+        </div>
+      </section>
+
+      {/* ══════════ ROLES ══════════ */}
+      <section ref={rolesRef} className={`hl-section ${rolesVisible ? "hl-in" : ""}`}>
+        <div className="hl-section-head">
+          <span className="hl-eyebrow">Who it's for</span>
+          <h2 className="hl-section-title">Built for both sides</h2>
+        </div>
+
+        <div className="hl-roles-grid">
+          <TiltCard className="hl-role-card hl-role-learner">
+            <div className="hl-role-tag">For Learners</div>
+            <h3>Find help without the friction</h3>
+            <ul className="hl-role-list">
+              <li>Browse verified tutors by subject</li>
+              <li>Chat before committing</li>
+              <li>Track every session clearly</li>
+              <li>Leave reviews that help others</li>
             </ul>
-            <div className="actions">
+            <div className="hl-role-actions">
               <Link to="/listings">
-                <button>Browse Tutors</button>
+                <button className="hl-btn-primary hl-btn-sm">Browse Tutors</button>
               </Link>
               <Link to="/learn-listings">
-                <button className="secondary">Post a Learning Need</button>
+                <button className="hl-btn-outline hl-btn-sm">Post a Need</button>
               </Link>
             </div>
-          </div>
+          </TiltCard>
 
-          <div className="role-panel-soft-purple">
-            <div className="role-panel-badge">For Tutors</div>
-            <h3>Teach, respond, and build a stronger reputation</h3>
-            <p>
-              Publish listings, respond to learner needs, manage sessions, and turn
-              completed work into visible credibility.
-            </p>
-            <ul className="home-list">
-              <li>Create professional tutor listings</li>
-              <li>Respond to active learner requests</li>
-              <li>Keep session communication organized</li>
-              <li>Grow trust with completed reviews</li>
+          <TiltCard className="hl-role-card hl-role-tutor">
+            <div className="hl-role-tag">For Tutors</div>
+            <h3>Teach, respond, and grow</h3>
+            <ul className="hl-role-list">
+              <li>Publish professional listings</li>
+              <li>Respond to learner requests</li>
+              <li>Manage sessions in one place</li>
+              <li>Build credibility with reviews</li>
             </ul>
-            <div className="actions">
+            <div className="hl-role-actions">
               <Link to="/dashboard">
-                <button>Go to Dashboard</button>
+                <button className="hl-btn-primary hl-btn-sm">Go to Dashboard</button>
               </Link>
               <Link to="/chats">
-                <button className="secondary">Open Chats</button>
+                <button className="hl-btn-outline hl-btn-sm">Open Chats</button>
               </Link>
             </div>
-          </div>
+          </TiltCard>
         </div>
       </section>
 
-      {/* ===================== PROOF ===================== */}
-      <section className="home-section home-proof-section">
-        <div className="home-section-header home-section-header-split">
-          <div>
-            <div className="section-eyebrow">Platform value</div>
-            <h2 className="section-title-lg">Everything important stays visible</h2>
-          </div>
-          <p className="section-copy section-copy-wide">
-            Tutor identity, reviews, session history, chats, and learner requests are
-            all surfaced clearly so decisions feel easier and the platform feels
-            trustworthy.
+      {/* ══════════ HOW IT WORKS ══════════ */}
+      <section ref={stepsRef} className={`hl-section ${stepsVisible ? "hl-in" : ""}`}>
+        <div className="hl-section-head">
+          <span className="hl-eyebrow">How it works</span>
+          <h2 className="hl-section-title">Three steps to your session</h2>
+        </div>
+
+        <div className="hl-steps">
+          {[
+            { n: "01", title: "Discover", body: "Browse tutor listings. Compare skills, ratings, and teaching style." },
+            { n: "02", title: "Connect",  body: "Open a chat. Ask questions and align before booking." },
+            { n: "03", title: "Learn",    body: "Confirm the session, attend, and leave a verified review." },
+          ].map(({ n, title, body }, i) => (
+            <div key={i} className="hl-step" style={{ "--i": i }}>
+              <div className="hl-step-num">{n}</div>
+              <h3>{title}</h3>
+              <p>{body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ══════════ CTA ══════════ */}
+      <section ref={ctaRef} className={`hl-cta ${ctaVisible ? "hl-in" : ""}`}>
+        <div className="hl-cta-blob-a" />
+        <div className="hl-cta-blob-b" />
+        <div className="hl-cta-inner">
+          <span className="hl-eyebrow hl-eyebrow-inv">Ready?</span>
+          <h2 className="hl-cta-heading">Learning starts here.</h2>
+          <p className="hl-cta-sub">
+            Join PeerLearn and turn peer knowledge into structured progress.
           </p>
-        </div>
-
-        <div className="proof-grid">
-          <div className="proof-card">
-            <div className="proof-number">01</div>
-            <h3>Profiles with substance</h3>
-            <p>Show public identity, teaching style, avatar, department, and ratings.</p>
-          </div>
-          <div className="proof-card">
-            <div className="proof-number">02</div>
-            <h3>Actionable dashboards</h3>
-            <p>See what matters first: ratings, readiness, recent reviews, and account data.</p>
-          </div>
-          <div className="proof-card">
-            <div className="proof-number">03</div>
-            <h3>Structured conversations</h3>
-            <p>Separate request chats from session chats and reduce unnecessary confusion.</p>
-          </div>
-          <div className="proof-card">
-            <div className="proof-number">04</div>
-            <h3>Trust after every session</h3>
-            <p>Completed session reviews help future learners choose more confidently.</p>
+          <div className="hl-cta-btns">
+            {!user ? (
+              <>
+                <Link to="/register">
+                  <button className="hl-btn-white hl-btn-lg">Create Free Account</button>
+                </Link>
+                <Link to="/login">
+                  <button className="hl-btn-outline-inv hl-btn-lg">Sign In →</button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/dashboard">
+                  <button className="hl-btn-white hl-btn-lg">Go to Dashboard</button>
+                </Link>
+                <Link to="/listings">
+                  <button className="hl-btn-outline-inv hl-btn-lg">Explore Tutors →</button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>
 
-      {/* ===================== CTA ===================== */}
-      <section className="home-section">
-        <div className="cta-section-commercial">
-          <div className="cta-grid">
-            <div>
-              <div className="section-eyebrow">Start now</div>
-              <h2>Make learning coordination feel premium, not chaotic</h2>
-              <p>
-                PeerLearn brings tutor discovery, direct messaging, session management,
-                and verified feedback into one refined academic marketplace.
-              </p>
+      {/* ══════════ FOOTER ══════════ */}
+      <footer className="hl-footer">
+        <div className="hl-footer-inner">
+          <div className="hl-footer-brand">
+            <div className="hl-footer-logo">
+              Peer<span className="hl-logo-accent">Learn</span>
             </div>
-            <div className="cta-actions-right">
-              {!user ? (
-                <>
-                  <Link to="/register">
-                    <button>Create Account</button>
-                  </Link>
-                  <Link to="/login">
-                    <button className="secondary">Sign In</button>
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link to="/dashboard">
-                    <button>Go to Dashboard</button>
-                  </Link>
-                  <Link to="/chats">
-                    <button className="secondary">Open Chats</button>
-                  </Link>
-                </>
-              )}
+            <p>Structured peer learning for modern students.</p>
+          </div>
+          <div className="hl-footer-nav">
+            <div className="hl-footer-col">
+              <h4>Explore</h4>
+              <Link to="/listings">Tutor Listings</Link>
+              <Link to="/learn-listings">Learn Listings</Link>
+              <Link to="/requests">Requests</Link>
+              <Link to="/sessions">Sessions</Link>
+            </div>
+            <div className="hl-footer-col">
+              <h4>Workspace</h4>
+              <Link to="/dashboard">Dashboard</Link>
+              <Link to="/chats">Chats</Link>
+              <Link to="/edit-profile">Edit Profile</Link>
+              {!user && <Link to="/register">Create Account</Link>}
             </div>
           </div>
         </div>
-      </section>
-
-      {/* ===================== FOOTER ===================== */}
-      <footer className="home-footer">
-        <div className="home-footer-grid">
-          <div className="home-footer-brand">
-            <div className="home-footer-logo">
-              <span className="home-footer-logo-dark">Peer</span>
-              <span className="home-footer-logo-accent">Learn</span>
-            </div>
-            <p>
-              A cleaner peer-to-peer learning platform for tutor discovery, chat,
-              session management, and verified reviews.
-            </p>
-          </div>
-
-          <div className="home-footer-links">
-            <h4>Explore</h4>
-            <Link to="/listings">Tutor Listings</Link>
-            <Link to="/learn-listings">Learn Listings</Link>
-            <Link to="/requests">Requests</Link>
-            <Link to="/sessions">Sessions</Link>
-          </div>
-
-          <div className="home-footer-links">
-            <h4>Workspace</h4>
-            <Link to="/dashboard">Dashboard</Link>
-            <Link to="/chats">Chats</Link>
-            <Link to="/edit-profile">Edit Profile</Link>
-            {!user && <Link to="/register">Create Account</Link>}
-          </div>
-
-          <div className="home-footer-note">
-            <h4>Why it works</h4>
-            <p>
-              Built for students who need fast decisions, clear communication, and
-              more trust before booking a session.
-            </p>
-          </div>
-        </div>
-
-        <div className="home-footer-bottom">
+        <div className="hl-footer-bottom">
           <span>© {new Date().getFullYear()} PeerLearn</span>
-          <span>Structured peer learning for modern students</span>
+          <span>Made for students who move fast</span>
         </div>
       </footer>
 
     </div>
   );
 }
-
-export default Home;

@@ -4,6 +4,12 @@ const TeachListing = require("../models/TeachListing");
 // POST /api/listings
 const createListing = async (req, res) => {
   try {
+    if (req.user.isAdmin) {
+      return res.status(403).json({
+        message: "Admin accounts cannot create teaching listings",
+      });
+    }
+
     const { skillName, description, level, mode, price } = req.body;
 
     const listing = await TeachListing.create({
@@ -17,7 +23,7 @@ const createListing = async (req, res) => {
 
     const user = await User.findById(req.user._id);
 
-    if (user && user.role !== "tutor") {
+    if (user && !user.isAdmin && user.role !== "tutor") {
       user.role = "tutor";
       await user.save();
     }

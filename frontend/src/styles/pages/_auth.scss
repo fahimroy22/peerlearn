@@ -22,6 +22,7 @@
   filter: blur(60px);
   pointer-events: none;
   opacity: 0.55;
+  animation: authFloat 7s ease-in-out infinite;
 }
 
 .auth-ambient-one {
@@ -38,6 +39,16 @@
   background: rgba(168, 85, 247, 0.14);
   bottom: 40px;
   right: 10%;
+  animation-delay: 1.2s;
+}
+
+.auth-ambient-three {
+  width: 180px;
+  height: 180px;
+  background: rgba(14, 165, 233, 0.11);
+  top: 45%;
+  right: 28%;
+  animation-delay: 2.2s;
 }
 
 .auth-card {
@@ -70,6 +81,7 @@
     0 8px 24px rgba(15, 23, 42, 0.06);
   backdrop-filter: blur(16px);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
+  animation: authCardIn 0.45s ease both;
 
   &:hover {
     transform: translateY(-3px);
@@ -79,6 +91,21 @@
   }
 }
 
+.auth-login-card {
+  overflow: hidden;
+}
+
+.auth-card-glow {
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.12), transparent 35%),
+    linear-gradient(315deg, rgba(139, 92, 246, 0.1), transparent 32%);
+  opacity: 0.75;
+  z-index: -1;
+}
+
 .auth-card-register {
   max-width: 600px;
   padding: 28px;
@@ -86,6 +113,7 @@
 
 .auth-header-block {
   margin-bottom: 20px;
+  animation: authFadeUp 0.5s ease both;
 }
 
 .auth-subtitle {
@@ -111,6 +139,8 @@
 
 .auth-form-grid {
   gap: 14px;
+  animation: authFadeUp 0.55s ease both;
+  animation-delay: 0.08s;
 }
 
 .auth-form-grid-register {
@@ -170,6 +200,12 @@
   }
 }
 
+.auth-floating-group {
+  input {
+    background: rgba(255, 255, 255, 0.96);
+  }
+}
+
 .auth-input-group select {
   appearance: none;
   border-radius: $radius-lg;
@@ -199,6 +235,49 @@
   line-height: 1.5;
 }
 
+.auth-password-field {
+  position: relative;
+
+  input {
+    width: 100%;
+    padding-right: 52px;
+  }
+}
+
+.auth-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  transform: translateY(-50%);
+  border: none;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.06);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: 0.2s ease;
+
+  &:hover {
+    color: #2563eb;
+    background: rgba(37, 99, 235, 0.1);
+    transform: translateY(-50%) scale(1.04);
+  }
+
+  &:active {
+    transform: translateY(-50%) scale(0.94);
+  }
+
+  svg {
+    width: 19px;
+    height: 19px;
+  }
+}
+
 .auth-actions {
   margin-top: 4px;
 
@@ -223,8 +302,24 @@
     &:disabled {
       opacity: 0.7;
       cursor: not-allowed;
+      transform: none;
     }
   }
+}
+
+.auth-button-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  border-top-color: white;
+  border-radius: 999px;
+  animation: authSpin 0.7s linear infinite;
 }
 
 .auth-actions-register {
@@ -243,6 +338,8 @@
   font-size: 14px;
   color: $color-muted;
   line-height: 1.6;
+  animation: authFadeUp 0.55s ease both;
+  animation-delay: 0.16s;
 
   a {
     font-weight: 700;
@@ -262,6 +359,47 @@
   padding: 6px 12px;
   border-radius: 999px;
   font-weight: 700;
+}
+
+@keyframes authCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes authFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes authFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(10px, -14px, 0) scale(1.04);
+  }
+}
+
+@keyframes authSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @include sm {

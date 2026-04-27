@@ -42,3 +42,19 @@ button.danger {
   margin-top: 16px;
   align-items: center;
 }
+
+@media (max-width: 640px) {
+  .actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions > * {
+    width: 100%;
+  }
+
+  .actions a,
+  .actions button {
+    width: 100%;
+  }
+}

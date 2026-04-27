@@ -144,6 +144,8 @@ const registerUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const safeRole = role === "tutor" ? "tutor" : "learner";
+
     const user = await User.create({
       name: normalizedName,
       publicId: normalizedStudentId,
@@ -151,11 +153,15 @@ const registerUser = async (req, res) => {
       password: hashedPassword,
       department,
       semester,
-      role: role || "learner",
+      role: safeRole,
+      isAdmin: false,
+      accountStatus: "active",
       activeSessionToken: null,
     });
 
     const token = generateToken(user._id);
+    user.activeSessionToken = token;
+    await user.save();
 
     res.status(201).json({
       _id: user._id,
@@ -165,6 +171,7 @@ const registerUser = async (req, res) => {
       department: user.department,
       semester: user.semester,
       role: user.role,
+      isAdmin: user.isAdmin,
       ratingAvg: user.ratingAvg,
       ratingCount: user.ratingCount,
       badge: user.badge,
@@ -187,6 +194,12 @@ const loginUser = async (req, res) => {
     if (!user) {
       return res.status(401).json({
         message: "Invalid email or password",
+      });
+    }
+
+    if (user.accountStatus === "blocked") {
+      return res.status(403).json({
+        message: "Your account has been blocked. Please contact support.",
       });
     }
 
@@ -216,6 +229,7 @@ const loginUser = async (req, res) => {
       department: user.department,
       semester: user.semester,
       role: user.role,
+      isAdmin: user.isAdmin,
       ratingAvg: user.ratingAvg,
       ratingCount: user.ratingCount,
       badge: user.badge,

@@ -24,11 +24,13 @@ function Navbar() {
   const notificationMenuRef = useRef(null);
   const pulseTimeoutRef = useRef(null);
 
+  const isAdmin = Boolean(user?.isAdmin);
+
   useEffect(() => {
     let intervalId;
 
     const fetchUnreadCount = async () => {
-      if (!user) {
+      if (!user || isAdmin) {
         setUnreadCount(0);
         return;
       }
@@ -52,7 +54,7 @@ function Navbar() {
       }
     };
 
-    if (user) {
+    if (user && !isAdmin) {
       fetchUnreadCount();
       intervalId = setInterval(fetchUnreadCount, 10000);
       socket.on("unread-updated", fetchUnreadCount);
@@ -64,7 +66,7 @@ function Navbar() {
       if (intervalId) clearInterval(intervalId);
       socket.off("unread-updated", fetchUnreadCount);
     };
-  }, [user, location.pathname]);
+  }, [user, location.pathname, isAdmin]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -285,7 +287,9 @@ function Navbar() {
     const iconClass = `navbar-notification-svg ${getNotificationVisual(type).className}`;
 
     switch (type) {
-      case "session_message":
+      case "support_ticket_created":
+      case "support_reply":
+      case "support_user_reply":
         return (
           <svg
             viewBox="0 0 24 24"
@@ -300,7 +304,7 @@ function Navbar() {
           </svg>
         );
 
-      case "request_message":
+      case "session_message":
         return (
           <svg
             viewBox="0 0 24 24"
@@ -311,112 +315,7 @@ function Navbar() {
             strokeLinejoin="round"
             className={iconClass}
           >
-            <path d="M4 4h16v16H4z" />
-            <path d="M8 9h8" />
-            <path d="M8 13h8" />
-            <path d="M8 17h5" />
-          </svg>
-        );
-
-      case "learn_request":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={iconClass}
-          >
-            <rect x="3" y="5" width="18" height="14" rx="2" />
-            <path d="m3 7 9 6 9-6" />
-          </svg>
-        );
-
-      case "request_accepted":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={iconClass}
-          >
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-        );
-
-      case "session_created":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={iconClass}
-          >
-            <rect x="3" y="4" width="18" height="18" rx="2" />
-            <path d="M16 2v4" />
-            <path d="M8 2v4" />
-            <path d="M3 10h18" />
-          </svg>
-        );
-
-      case "exchange_request":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={iconClass}
-          >
-            <path d="M16 3h5v5" />
-            <path d="M4 20 21 3" />
-            <path d="M8 3H3v5" />
-            <path d="M20 20 3 3" />
-          </svg>
-        );
-
-      case "exchange_request_accepted":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={iconClass}
-          >
-            <path d="M8 12h8" />
-            <path d="M12 8v8" />
-            <circle cx="12" cy="12" r="9" />
-          </svg>
-        );
-
-      case "exchange_message":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={iconClass}
-          >
-            <path d="M17 1l4 4-4 4" />
-            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-            <path d="M7 23l-4-4 4-4" />
-            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
         );
 
@@ -448,6 +347,9 @@ function Navbar() {
       exchange_request: { className: "is-exchange-request" },
       exchange_request_accepted: { className: "is-exchange-accepted" },
       exchange_message: { className: "is-exchange-message" },
+      support_ticket_created: { className: "is-request-message" },
+      support_reply: { className: "is-session-message" },
+      support_user_reply: { className: "is-learn-request" },
     };
 
     return map[type] || { className: "is-default" };
@@ -523,7 +425,16 @@ function Navbar() {
           className={`navbar-toggle ${mobileOpen ? "is-open" : ""}`}
           aria-label="Toggle navigation"
           aria-expanded={mobileOpen}
-          onClick={() => setMobileOpen((prev) => !prev)}
+          onClick={() => {
+            setMobileOpen((prev) => {
+              const next = !prev;
+              if (next) {
+                setProfileOpen(false);
+                setNotificationOpen(false);
+              }
+              return next;
+            });
+          }}
         >
           <span />
           <span />
@@ -536,56 +447,113 @@ function Navbar() {
               Home
             </Link>
 
-            <Link
-              to="/listings"
-              className={`nav-link ${isActive("/listings") ? "active" : ""}`}
-            >
-              Tutor Listings
-            </Link>
-
-            {user && (
+            {!isAdmin && (
               <>
                 <Link
-                  to="/learn-listings"
-                  className={`nav-link ${isActive("/learn-listings") ? "active" : ""}`}
+                  to="/listings"
+                  className={`nav-link ${isActive("/listings") ? "active" : ""}`}
                 >
-                  Learn Listings
+                  Tutor Listings
                 </Link>
 
-                <Link
-                  to="/skill-exchange"
-                  className={`nav-link ${isActive("/skill-exchange") ? "active" : ""}`}
-                >
-                  Skill Exchange
-                </Link>
+                {user && (
+                  <>
+                    <Link
+                      to="/learn-listings"
+                      className={`nav-link ${isActive("/learn-listings") ? "active" : ""}`}
+                    >
+                      Learn Listings
+                    </Link>
 
-                <Link
-                  to="/requests"
-                  className={`nav-link ${isActive("/requests") ? "active" : ""}`}
-                >
-                  Requests
-                </Link>
+                    <Link
+                      to="/skill-exchange"
+                      className={`nav-link ${isActive("/skill-exchange") ? "active" : ""}`}
+                    >
+                      Skill Exchange
+                    </Link>
 
-                <Link
-                  to="/sessions"
-                  className={`nav-link ${isActive("/sessions") ? "active" : ""}`}
-                >
-                  Sessions
-                </Link>
+                    <Link
+                      to="/requests"
+                      className={`nav-link ${isActive("/requests") ? "active" : ""}`}
+                    >
+                      Requests
+                    </Link>
 
-                <Link
-                  to="/chats"
-                  className={`nav-link ${isActive("/chats") ? "active" : ""}`}
-                >
-                  <span className="nav-chip">
-                    Chats
-                    {unreadCount > 0 && (
-                      <span className="badge badge-blue">{unreadCount}</span>
-                    )}
-                  </span>
-                </Link>
+                    <Link
+                      to="/sessions"
+                      className={`nav-link ${isActive("/sessions") ? "active" : ""}`}
+                    >
+                      Sessions
+                    </Link>
+
+                    <Link
+                      to="/chats"
+                      className={`nav-link ${isActive("/chats") ? "active" : ""}`}
+                    >
+                      <span className="nav-chip">
+                        Chats
+                        {unreadCount > 0 && (
+                          <span className="badge badge-blue">{unreadCount}</span>
+                        )}
+                      </span>
+                    </Link>
+
+                    <Link
+                      to="/help"
+                      className={`nav-link ${isActive("/help") ? "active" : ""}`}
+                    >
+                      Help
+                    </Link>
+                  </>
+                )}
               </>
             )}
+
+            {isAdmin && (
+  <>
+    <Link
+      to="/admin"
+      className={`nav-link ${isActive("/admin") ? "active" : ""}`}
+    >
+      Admin Dashboard
+    </Link>
+
+    <Link
+      to="/admin/profile"
+      className={`nav-link ${isActive("/admin/profile") ? "active" : ""}`}
+    >
+      Profile
+    </Link>
+
+    <Link
+      to="/admin/users"
+      className={`nav-link ${isActive("/admin/users") ? "active" : ""}`}
+    >
+      Users
+    </Link>
+
+    <Link
+      to="/admin/listings"
+      className={`nav-link ${isActive("/admin/listings") ? "active" : ""}`}
+    >
+      Listings
+    </Link>
+
+    <Link
+      to="/admin/support"
+      className={`nav-link ${isActive("/admin/support") ? "active" : ""}`}
+    >
+      Support Tickets
+    </Link>
+
+    <Link
+      to="/admin/audit"
+      className={`nav-link ${isActive("/admin/audit") ? "active" : ""}`}
+    >
+      Audit Logs
+    </Link>
+  </>
+)}
           </div>
 
           <div className="navbar-links-right">
@@ -602,7 +570,10 @@ function Navbar() {
                     } ${bellPulse ? "has-pulse" : ""} ${
                       notificationUnreadCount > 0 ? "has-unread" : ""
                     }`}
-                    onClick={handleOpenNotifications}
+                    onClick={() => {
+                      setProfileOpen(false);
+                      handleOpenNotifications();
+                    }}
                     aria-label="Open notifications"
                     aria-expanded={notificationOpen}
                   >
@@ -633,7 +604,7 @@ function Navbar() {
                       <div>
                         <div className="navbar-notification-title">Notifications</div>
                         <div className="navbar-notification-subtitle">
-                          Latest activity across chats, requests, and sessions
+                          Latest activity across chats, requests, sessions, and support
                         </div>
                       </div>
 
@@ -740,8 +711,8 @@ function Navbar() {
                     type="button"
                     className={`navbar-profile-trigger ${profileOpen ? "is-open" : ""}`}
                     onClick={() => {
-                      setProfileOpen((prev) => !prev);
                       setNotificationOpen(false);
+                      setProfileOpen((prev) => !prev);
                     }}
                     aria-label="Open profile menu"
                     aria-expanded={profileOpen}
@@ -800,13 +771,48 @@ function Navbar() {
                       </div>
                     </div>
 
-                    <Link to="/dashboard" className="navbar-menu-item">
-                      Dashboard
+                    <Link
+                      to={isAdmin ? "/admin" : "/dashboard"}
+                      className="navbar-menu-item"
+                    >
+                      {isAdmin ? "Admin Dashboard" : "Dashboard"}
                     </Link>
 
-                    <Link to="/edit-profile" className="navbar-menu-item">
-                      Edit Profile
-                    </Link>
+                    {!isAdmin && (
+                      <>
+                        <Link to="/edit-profile" className="navbar-menu-item">
+                          Edit Profile
+                        </Link>
+
+                        <Link to="/support/my" className="navbar-menu-item">
+                          My Support Tickets
+                        </Link>
+                      </>
+                    )}
+
+                    {isAdmin && (
+  <>
+    <Link to="/admin/profile" className="navbar-menu-item">
+      Admin Profile
+    </Link>
+
+    <Link to="/admin/users" className="navbar-menu-item">
+      Manage Users
+    </Link>
+
+    <Link to="/admin/listings" className="navbar-menu-item">
+      Listings
+    </Link>
+
+    <Link to="/admin/support" className="navbar-menu-item">
+      Support Tickets
+    </Link>
+
+    <Link to="/admin/audit" className="navbar-menu-item">
+      Audit Logs
+    </Link>
+  </>
+)}
 
                     <button
                       type="button"

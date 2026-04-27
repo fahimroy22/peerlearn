@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -20,6 +21,19 @@ import ExchangeChat from "./pages/ExchangeChat";
 import Notifications from "./pages/Notifications";
 import SessionVerification from "./pages/SessionVerification";
 
+// new pages
+import HelpCenter from "./pages/HelpCenter";
+import MySupportTickets from "./pages/MySupportTickets";
+import SupportChat from "./pages/SupportChat";
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminUsers from "./pages/AdminUsers";
+import AdminSupportTickets from "./pages/AdminSupportTickets";
+import AdminSupportChat from "./pages/AdminSupportChat";
+import CreateSupportTicket from "./pages/CreateSupportTicket";
+import AdminListings from "./pages/AdminListings";
+import AdminAuditLogs from "./pages/AdminAuditLogs";
+import AdminProfile from "./pages/AdminProfile";
+
 function App() {
   return (
     <>
@@ -33,7 +47,7 @@ function App() {
         <Route
           path="/learn-listings"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminBlocked>
               <LearnListings />
             </ProtectedRoute>
           }
@@ -42,7 +56,7 @@ function App() {
         <Route
           path="/tutor-profile/:id"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminBlocked>
               <TutorProfile />
             </ProtectedRoute>
           }
@@ -72,7 +86,7 @@ function App() {
         <Route
           path="/requests"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminBlocked>
               <Requests />
             </ProtectedRoute>
           }
@@ -81,7 +95,7 @@ function App() {
         <Route
           path="/sessions"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminBlocked>
               <Sessions />
             </ProtectedRoute>
           }
@@ -90,7 +104,7 @@ function App() {
         <Route
           path="/chat/:sessionId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminBlocked>
               <Chat />
             </ProtectedRoute>
           }
@@ -99,7 +113,7 @@ function App() {
         <Route
           path="/request-chat/:requestId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminBlocked>
               <RequestChat />
             </ProtectedRoute>
           }
@@ -108,7 +122,7 @@ function App() {
         <Route
           path="/chats"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminBlocked>
               <Chats />
             </ProtectedRoute>
           }
@@ -117,7 +131,7 @@ function App() {
         <Route
           path="/exchange-chat/:conversationId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminBlocked>
               <ExchangeChat />
             </ProtectedRoute>
           }
@@ -126,7 +140,7 @@ function App() {
         <Route
           path="/skill-exchange"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminBlocked>
               <SkillExchange />
             </ProtectedRoute>
           }
@@ -140,6 +154,96 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/help"
+          element={
+            <ProtectedRoute adminBlocked>
+              <HelpCenter />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/support/my"
+          element={
+            <ProtectedRoute adminBlocked>
+              <MySupportTickets />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/support/:ticketId"
+          element={
+            <ProtectedRoute>
+              <SupportChat />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="/support/new" element={<CreateSupportTicket />} />
+
+        <Route
+          path="/admin"
+          element={
+            <AdminRoute>
+              <AdminDashboard />
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/users"
+          element={
+            <AdminRoute>
+              <AdminUsers />
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/support"
+          element={
+            <AdminRoute>
+              <AdminSupportTickets />
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/support/:ticketId"
+          element={
+            <AdminRoute>
+              <AdminSupportChat />
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/listings"
+          element={
+            <AdminRoute>
+              <AdminListings />
+            </AdminRoute>
+          }
+        />
+        <Route
+  path="/admin/audit"
+  element={
+    <AdminRoute>
+      <AdminAuditLogs />
+    </AdminRoute>
+  }
+/>
+<Route
+  path="/admin/profile"
+  element={
+    <AdminRoute>
+      <AdminProfile />
+    </AdminRoute>
+  }
+/>
       </Routes>
     </>
   );

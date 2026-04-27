@@ -3,7 +3,7 @@ const multer = require("multer");
 const path = require("path");
 const router = express.Router();
 
-const authMiddleware = require("../middleware/authMiddleware");
+const { authMiddleware } = require("../middleware/authMiddleware");
 const {
   sendRequestMessage,
   getRequestMessages,

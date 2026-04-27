@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import api from "../api/axios";
 import useAuth from "../context/useAuth";
 import useToast from "../context/useToast";
@@ -9,6 +9,10 @@ function Listings() {
   const { user } = useAuth();
   const { showToast } = useToast();
 
+  if (user?.isAdmin) {
+    return <Navigate to="/admin/listings" replace />;
+  }
+
   const [listings, setListings] = useState([]);
   const [requestedIds, setRequestedIds] = useState(new Set());
   const [loadingRequestId, setLoadingRequestId] = useState("");
@@ -17,6 +21,9 @@ function Listings() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedListingId, setSelectedListingId] = useState(null);
+
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedListing, setSelectedListing] = useState(null);
 
   const [formData, setFormData] = useState({
     skillName: "",
@@ -149,6 +156,17 @@ function Listings() {
         prev.filter((listing) => listing._id !== selectedListingId)
       );
 
+      setRequestedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(selectedListingId);
+        return next;
+      });
+
+      if (selectedListing?._id === selectedListingId) {
+        setShowDetailsModal(false);
+        setSelectedListing(null);
+      }
+
       setPageMessage("Tutor listing deleted successfully");
       showToast("Tutor listing deleted successfully", "success");
     } catch (error) {
@@ -169,7 +187,22 @@ function Listings() {
     setSelectedListingId(null);
   };
 
+  const openDetailsModal = (listing) => {
+    setSelectedListing(listing);
+    setShowDetailsModal(true);
+  };
+
+  const closeDetailsModal = () => {
+    setShowDetailsModal(false);
+    setSelectedListing(null);
+  };
+
   const handleRequest = async (listingId) => {
+    if (!user) {
+      showToast("Please log in to send a request", "error");
+      return;
+    }
+
     setLoadingRequestId(listingId);
     setPageMessage("");
 
@@ -211,24 +244,21 @@ function Listings() {
     return `${normalizedHour}:${minute} ${suffix}`;
   };
 
-  const formatAvailabilityPreview = (availability = []) => {
+  const getAvailabilityLines = (availability = []) => {
     const activeDays = availability.filter((day) => (day.slots || []).length > 0);
 
-    if (activeDays.length === 0) return "No availability added";
+    if (activeDays.length === 0) return ["No availability added"];
 
-    return activeDays
-      .slice(0, 2)
-      .map(
-        (day) =>
-          `${day.day}: ${(day.slots || [])
-            .slice(0, 2)
-            .map(
-              (slot) =>
-                `${formatTime12Hour(slot.start)}-${formatTime12Hour(slot.end)}`
-            )
-            .join(", ")}`
-      )
-      .join(" • ");
+    return activeDays.map((day) => {
+      const slots = (day.slots || [])
+        .map(
+          (slot) =>
+            `${formatTime12Hour(slot.start)}-${formatTime12Hour(slot.end)}`
+        )
+        .join(", ");
+
+      return `${day.day}: ${slots}`;
+    });
   };
 
   const getBadgeClass = (badge) => {
@@ -237,6 +267,26 @@ function Listings() {
     if (badge === "Trusted") return "listing-trust-pill listing-badge-trusted";
     return "listing-trust-pill listing-badge-beginner";
   };
+
+  const getTutorInitials = (name = "") => {
+    const parts = String(name).trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "T";
+    if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+    return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+  };
+
+  const selectedIsOwnListing =
+    !!user && !!selectedListing && user._id === selectedListing.tutor?._id;
+  const selectedAlreadyRequested =
+    !!selectedListing && requestedIds.has(selectedListing._id);
+  const selectedIsLoading =
+    !!selectedListing && loadingRequestId === selectedListing._id;
+  const selectedIsDeleting =
+    !!selectedListing && deletingListingId === selectedListing._id;
+
+  const selectedAvailabilityLines = selectedListing
+    ? getAvailabilityLines(selectedListing.tutor?.availability || [])
+    : [];
 
   return (
     <div className="page">
@@ -335,31 +385,53 @@ function Listings() {
               const isDeleting = deletingListingId === listing._id;
 
               const tutorBadge = listing.tutor?.badge || "Beginner";
-              const tutorAvailability = listing.tutor?.availability || [];
+              const tutorName = listing.tutor?.name || "Tutor";
 
               return (
-                <div key={listing._id} className="listing-card">
-                  <div className="listing-card-top">
-                    <div>
-                      <h3 className="listing-skill">{listing.skillName}</h3>
-                      <p className="listing-desc">{listing.description}</p>
+                <div key={listing._id} className="listing-card listing-card-compact">
+                  <div className="listing-card-header">
+                    <div className="listing-card-main">
+                      <h3 className="listing-skill listing-skill-compact">
+                        {listing.skillName}
+                      </h3>
+
+                      <div className="listing-tutor-row listing-tutor-row-compact">
+                        <div className="listing-tutor-identity">
+                          {listing.tutor?.avatar ? (
+                            <img
+                              src={listing.tutor.avatar}
+                              alt={tutorName}
+                              className="listing-tutor-avatar"
+                            />
+                          ) : (
+                            <div className="listing-tutor-avatar listing-tutor-avatar-fallback">
+                              {getTutorInitials(tutorName)}
+                            </div>
+                          )}
+
+                          <span className="listing-tutor-name">{tutorName}</span>
+                        </div>
+
+                        <span className={getBadgeClass(tutorBadge)}>{tutorBadge}</span>
+                      </div>
+
+                      <p className="listing-desc listing-desc-compact">
+                        {listing.description?.length > 95
+                          ? `${listing.description.slice(0, 95)}...`
+                          : listing.description}
+                      </p>
                     </div>
 
-                    <div className="listing-chip-group">
+                    <div className="listing-chip-group listing-chip-group-compact">
                       <span className="badge badge-blue">{listing.level}</span>
                       <span className="badge badge-yellow">{listing.mode}</span>
                     </div>
                   </div>
 
-                  <div className="listing-tutor-row">
-                    <span className="listing-tutor-name">{listing.tutor?.name}</span>
-                    <span className={getBadgeClass(tutorBadge)}>{tutorBadge}</span>
-                  </div>
-
-                  <div className="listing-rating-row">
-                    <div className="listing-rating-box">
-                      <span className="listing-meta-label">Average Rating</span>
-                      <span className="listing-rating-value">
+                  <div className="listing-stat-row">
+                    <div className="listing-stat-pill">
+                      <span className="listing-stat-label">Rating</span>
+                      <span className="listing-stat-value">
                         ⭐{" "}
                         {listing.tutor?.ratingAvg?.toFixed?.(1) ||
                           listing.tutor?.ratingAvg ||
@@ -367,93 +439,216 @@ function Listings() {
                       </span>
                     </div>
 
-                    <div className="listing-rating-box">
-                      <span className="listing-meta-label">Total Reviews</span>
-                      <span className="listing-rating-value">
-                        {listing.tutor?.ratingCount || 0}
+                    <div className="listing-stat-pill">
+                      <span className="listing-stat-label">Price</span>
+                      <span className="listing-stat-value">
+                        {listing.price > 0 ? `৳ ${listing.price}` : "Free"}
                       </span>
                     </div>
                   </div>
 
-                  <div className="listing-trust-row">
-                    <span className="listing-trust-pill">
-                      {listing.price > 0 ? `৳ ${listing.price}` : "Free / Negotiable"}
-                    </span>
-                    <span className="listing-trust-pill">
-                      Student ID: {listing.tutor?.publicId || "No ID yet"}
-                    </span>
-                  </div>
+                  <div className="listing-card-footer">
+                    {!user ? (
+                      <div className="listing-guidance-box">
+                        Sign in to send a request and start chatting with this tutor.
+                      </div>
+                    ) : !isOwnListing ? (
+                      <div className="listing-primary-action">
+                        <button
+                          type="button"
+                          onClick={() => handleRequest(listing._id)}
+                          disabled={alreadyRequested || isLoading}
+                          className={`listing-request-btn ${
+                            alreadyRequested ? "secondary" : ""
+                          }`}
+                        >
+                          {isLoading
+                            ? "Sending..."
+                            : alreadyRequested
+                            ? "Requested"
+                            : "Request Session"}
+                        </button>
 
-                  <div className="listing-divider" />
+                        <div className="listing-action-hint">
+                          {alreadyRequested
+                            ? "You already sent a request for this listing."
+                            : "Send a direct request to start the process."}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="listing-primary-action">
+                        <button
+                          type="button"
+                          className="danger listing-request-btn"
+                          onClick={() => handleDeleteListing(listing._id)}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? "Deleting..." : "Delete Listing"}
+                        </button>
 
-                  <div className="listing-meta-grid">
-                    <div className="listing-meta-item">
-                      <span className="listing-meta-label">Email</span>
-                      <span className="listing-meta-value">{listing.tutor?.email}</span>
-                    </div>
-                  </div>
+                        <div className="listing-action-hint">
+                          This is your own tutor listing. You can delete it anytime.
+                        </div>
+                      </div>
+                    )}
 
-                  <div className="listing-availability-card">
-                    <span className="listing-meta-label">Availability</span>
-                    <p className="listing-availability-copy">
-                      {formatAvailabilityPreview(tutorAvailability)}
-                    </p>
-                  </div>
-
-                  <div className="actions">
-                    <Link
-                      className="inline-link"
-                      to={`/tutor-profile/${listing.tutor?._id}`}
-                    >
-                      View Tutor Profile
-                    </Link>
-                  </div>
-
-                  {!user ? (
-                    <div className="listing-guidance-box">
-                      Sign in to send a request and start chatting with this tutor.
-                    </div>
-                  ) : !isOwnListing ? (
-                    <div className="listing-action-row">
+                    <div className="listing-secondary-actions">
                       <button
-                        onClick={() => handleRequest(listing._id)}
-                        disabled={alreadyRequested || isLoading}
-                        className={alreadyRequested ? "secondary" : ""}
+                        type="button"
+                        className="secondary listing-secondary-btn"
+                        onClick={() => openDetailsModal(listing)}
                       >
-                        {isLoading
-                          ? "Sending..."
-                          : alreadyRequested
-                          ? "Requested"
-                          : "Request Session"}
+                        Show Details
                       </button>
 
-                      <div className="listing-action-hint">
-                        {alreadyRequested
-                          ? "You already sent a request for this listing."
-                          : "Send a direct request to start the process."}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="listing-action-row">
-                      <button
-                        className="danger"
-                        onClick={() => handleDeleteListing(listing._id)}
-                        disabled={isDeleting}
+                      <Link
+                        className="secondary listing-link-button listing-secondary-btn"
+                        to={`/tutor-profile/${listing.tutor?._id}`}
                       >
-                        {isDeleting ? "Deleting..." : "Delete Listing"}
-                      </button>
-
-                      <div className="listing-action-hint">
-                        This is your own tutor listing. You can delete it anytime.
-                      </div>
+                        View Tutor Profile
+                      </Link>
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {showDetailsModal && selectedListing && (
+        <div className="modal-overlay" onClick={closeDetailsModal}>
+          <div
+            className="modal-box listing-details-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="listing-details-header">
+              <div>
+                <h3 className="modal-title">{selectedListing.skillName}</h3>
+                <p className="listing-details-subtitle">
+                  Taught by {selectedListing.tutor?.name}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="secondary"
+                onClick={closeDetailsModal}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="listing-chip-group listing-details-chips">
+              <span className="badge badge-blue">{selectedListing.level}</span>
+              <span className="badge badge-yellow">{selectedListing.mode}</span>
+              <span
+                className={getBadgeClass(selectedListing.tutor?.badge || "Beginner")}
+              >
+                {selectedListing.tutor?.badge || "Beginner"}
+              </span>
+            </div>
+
+            <div className="listing-details-section">
+              <span className="listing-meta-label">Description</span>
+              <p className="listing-details-text">{selectedListing.description}</p>
+            </div>
+
+            <div className="listing-details-grid">
+              <div className="listing-details-card">
+                <span className="listing-meta-label">Price</span>
+                <span className="listing-rating-value">
+                  {selectedListing.price > 0
+                    ? `৳ ${selectedListing.price}`
+                    : "Free / Negotiable"}
+                </span>
+              </div>
+
+              <div className="listing-details-card">
+                <span className="listing-meta-label">Rating</span>
+                <span className="listing-rating-value">
+                  ⭐{" "}
+                  {selectedListing.tutor?.ratingAvg?.toFixed?.(1) ||
+                    selectedListing.tutor?.ratingAvg ||
+                    0}
+                </span>
+              </div>
+
+              <div className="listing-details-card">
+                <span className="listing-meta-label">Total Reviews</span>
+                <span className="listing-rating-value">
+                  {selectedListing.tutor?.ratingCount || 0}
+                </span>
+              </div>
+
+              <div className="listing-details-card">
+                <span className="listing-meta-label">Student ID</span>
+                <span className="listing-meta-value">
+                  {selectedListing.tutor?.publicId || "No ID yet"}
+                </span>
+              </div>
+            </div>
+
+            <div className="listing-details-section">
+              <span className="listing-meta-label">Email</span>
+              <p className="listing-details-text">{selectedListing.tutor?.email}</p>
+            </div>
+
+            <div className="listing-details-section">
+              <span className="listing-meta-label">Availability</span>
+              <div className="listing-availability-list">
+                {selectedAvailabilityLines.map((line, index) => (
+                  <div key={`${line}-${index}`} className="listing-availability-line">
+                    {line}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="listing-details-footer">
+              <div className="listing-details-actions">
+                <Link
+                  className="secondary listing-link-button listing-modal-action-btn"
+                  to={`/tutor-profile/${selectedListing.tutor?._id}`}
+                  onClick={closeDetailsModal}
+                >
+                  View Tutor Profile
+                </Link>
+
+                {!user ? (
+                  <div className="listing-guidance-box listing-guidance-box-modal">
+                    Sign in to send a request and start chatting with this tutor.
+                  </div>
+                ) : !selectedIsOwnListing ? (
+                  <button
+                    type="button"
+                    onClick={() => handleRequest(selectedListing._id)}
+                    disabled={selectedAlreadyRequested || selectedIsLoading}
+                    className={`listing-modal-action-btn ${
+                      selectedAlreadyRequested ? "secondary" : ""
+                    }`}
+                  >
+                    {selectedIsLoading
+                      ? "Sending..."
+                      : selectedAlreadyRequested
+                      ? "Requested"
+                      : "Request Session"}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="danger listing-modal-action-btn"
+                    onClick={() => handleDeleteListing(selectedListing._id)}
+                    disabled={selectedIsDeleting}
+                  >
+                    {selectedIsDeleting ? "Deleting..." : "Delete Listing"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={showDeleteModal}
