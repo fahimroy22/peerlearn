@@ -144,25 +144,16 @@ const createSupportTicket = async (req, res) => {
       });
     }
 
-    const { subject, category, text, priority, email, studentId } = req.body;
-    const file = req.file;
+    const { subject, category, text, priority } = req.body;
+const file = req.file;
 
-    let ticketUser = req.user || null;
+const ticketUser = req.user;
 
-    if (!ticketUser && (email || studentId)) {
-      ticketUser = await User.findOne({
-        $or: [
-          email ? { email: email.trim().toLowerCase() } : null,
-          studentId ? { publicId: String(studentId).trim() } : null,
-        ].filter(Boolean),
-      });
-    }
-
-    if (!ticketUser) {
-      return res.status(400).json({
-        message: "Please provide a valid account email or student ID",
-      });
-    }
+if (!ticketUser) {
+  return res.status(401).json({
+    message: "Please log in before opening a support ticket",
+  });
+}
 
     if (!subject?.trim()) {
       return res.status(400).json({ message: "Subject is required" });

@@ -36,9 +36,9 @@ const authMiddleware = async (req, res, next) => {
     }
 
     if (!user.activeSessionToken || user.activeSessionToken !== token) {
-      return res.status(401).json({
+     return res.status(401).json({
         message:
-          "Session expired or account logged in elsewhere. Please log in again.",
+         "Session expired or account logged in elsewhere. Please log in again.",
       });
     }
 

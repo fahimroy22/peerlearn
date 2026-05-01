@@ -50,7 +50,7 @@ function UploadIcon() {
   );
 }
 
-function getProgress(formData, selectedQuestion, selectedFile) {
+function getProgress(formData, selectedQuestion) {
   let done = 0;
   if (formData.category) done++;
   if (selectedQuestion || formData.text.trim()) done++;

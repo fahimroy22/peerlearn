@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import api, { API_BASE_URL } from "../api/axios";
 import socket from "../socket";
 import useAuth from "../context/useAuth";
@@ -17,177 +17,117 @@ function Navbar() {
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [bellPulse, setBellPulse] = useState(false);
-  const [clearingAllNotifications, setClearingAllNotifications] = useState(false);
-  const [deletingNotificationId, setDeletingNotificationId] = useState("");
+  const [clearingAll, setClearingAll] = useState(false);
+  const [deletingId, setDeletingId] = useState("");
+  const [scrolled, setScrolled] = useState(false);
 
   const profileMenuRef = useRef(null);
   const notificationMenuRef = useRef(null);
   const pulseTimeoutRef = useRef(null);
+  const navRef = useRef(null);
 
   const isAdmin = Boolean(user?.isAdmin);
 
+  /* ── scroll shrink ── */
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 18);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  /* ── unread chat count ── */
   useEffect(() => {
     let intervalId;
-
-    const fetchUnreadCount = async () => {
-      if (!user || isAdmin) {
-        setUnreadCount(0);
-        return;
-      }
-
+    const fetchUnread = async () => {
+      if (!user || isAdmin) { setUnreadCount(0); return; }
       try {
-        const [sessionUnreadRes, requestUnreadRes, exchangeUnreadRes] =
-          await Promise.all([
-            api.get("/messages/unread-count"),
-            api.get("/request-messages/unread-count"),
-            api.get("/exchange-messages/unread-count"),
-          ]);
-
-        const totalUnread =
-          (sessionUnreadRes.data?.unreadCount || 0) +
-          (requestUnreadRes.data?.unreadCount || 0) +
-          (exchangeUnreadRes.data?.unreadCount || 0);
-
-        setUnreadCount(totalUnread);
-      } catch {
-        setUnreadCount(0);
-      }
+        const [a, b, c] = await Promise.all([
+          api.get("/messages/unread-count"),
+          api.get("/request-messages/unread-count"),
+          api.get("/exchange-messages/unread-count"),
+        ]);
+        setUnreadCount(
+          (a.data?.unreadCount || 0) + (b.data?.unreadCount || 0) + (c.data?.unreadCount || 0)
+        );
+      } catch { setUnreadCount(0); }
     };
-
     if (user && !isAdmin) {
-      fetchUnreadCount();
-      intervalId = setInterval(fetchUnreadCount, 10000);
-      socket.on("unread-updated", fetchUnreadCount);
-    } else {
-      setUnreadCount(0);
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-      socket.off("unread-updated", fetchUnreadCount);
-    };
+      fetchUnread();
+      intervalId = setInterval(fetchUnread, 10000);
+      socket.on("unread-updated", fetchUnread);
+    } else { setUnreadCount(0); }
+    return () => { if (intervalId) clearInterval(intervalId); socket.off("unread-updated", fetchUnread); };
   }, [user, location.pathname, isAdmin]);
 
+  /* ── profile data ── */
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (!user) {
-        setProfileData(null);
-        return;
-      }
-
-      try {
-        const res = await api.get("/users/profile");
-        setProfileData(res.data || null);
-      } catch {
-        setProfileData(user);
-      }
-    };
-
-    fetchProfile();
+    if (!user) { setProfileData(null); return; }
+    api.get("/users/profile").then((r) => setProfileData(r.data || null)).catch(() => setProfileData(user));
   }, [user, location.pathname]);
 
+  /* ── notifications ── */
   useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!user) {
-        setNotifications([]);
-        setNotificationUnreadCount(0);
-        return;
-      }
-
+    const fetch = async () => {
+      if (!user) { setNotifications([]); setNotificationUnreadCount(0); return; }
       try {
-        const [listRes, countRes] = await Promise.all([
-          api.get("/notifications"),
-          api.get("/notifications/unread-count"),
-        ]);
-
-        setNotifications(listRes.data || []);
-        setNotificationUnreadCount(countRes.data?.unreadCount || 0);
-      } catch {
-        setNotifications([]);
-        setNotificationUnreadCount(0);
-      }
+        const [list, count] = await Promise.all([api.get("/notifications"), api.get("/notifications/unread-count")]);
+        setNotifications(list.data || []);
+        setNotificationUnreadCount(count.data?.unreadCount || 0);
+      } catch { setNotifications([]); setNotificationUnreadCount(0); }
     };
-
-    fetchNotifications();
+    fetch();
 
     const triggerPulse = () => {
       setBellPulse(true);
-
-      if (pulseTimeoutRef.current) {
-        clearTimeout(pulseTimeoutRef.current);
-      }
-
-      pulseTimeoutRef.current = setTimeout(() => {
-        setBellPulse(false);
-      }, 2200);
+      clearTimeout(pulseTimeoutRef.current);
+      pulseTimeoutRef.current = setTimeout(() => setBellPulse(false), 2200);
     };
 
-    const handleNewNotification = (notification) => {
-      setNotifications((prev) => [notification, ...prev].slice(0, 25));
-      setNotificationUnreadCount((prev) => prev + 1);
+    const handleNew = (n) => {
+      setNotifications((p) => [n, ...p].slice(0, 25));
+      setNotificationUnreadCount((p) => p + 1);
       triggerPulse();
     };
-
-    const handleNotificationUpdated = ({ unreadCount: updatedUnreadCount }) => {
-      setNotificationUnreadCount(updatedUnreadCount || 0);
-      fetchNotifications();
+    const handleUpdated = ({ unreadCount: u }) => {
+      setNotificationUnreadCount(u || 0);
+      fetch();
     };
-
     if (user) {
-      socket.on("new_notification", handleNewNotification);
-      socket.on("notification_updated", handleNotificationUpdated);
+      socket.on("new_notification", handleNew);
+      socket.on("notification_updated", handleUpdated);
     }
-
     return () => {
-      socket.off("new_notification", handleNewNotification);
-      socket.off("notification_updated", handleNotificationUpdated);
-
-      if (pulseTimeoutRef.current) {
-        clearTimeout(pulseTimeoutRef.current);
-      }
+      socket.off("new_notification", handleNew);
+      socket.off("notification_updated", handleUpdated);
+      clearTimeout(pulseTimeoutRef.current);
     };
   }, [user]);
 
+  /* ── close on route change ── */
   useEffect(() => {
-    setMobileOpen(false);
-    setProfileOpen(false);
-    setNotificationOpen(false);
+    setMobileOpen(false); setProfileOpen(false); setNotificationOpen(false);
   }, [location.pathname]);
 
+  /* ── resize close mobile ── */
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth > 980) {
-        setMobileOpen(false);
-      }
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const h = () => { if (window.innerWidth > 980) setMobileOpen(false); };
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
   }, []);
 
+  /* ── outside click ── */
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
-        setProfileOpen(false);
-      }
-
-      if (
-        notificationMenuRef.current &&
-        !notificationMenuRef.current.contains(event.target)
-      ) {
-        setNotificationOpen(false);
-      }
+    const h = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) setProfileOpen(false);
+      if (notificationMenuRef.current && !notificationMenuRef.current.contains(e.target)) setNotificationOpen(false);
     };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
   }, []);
 
   const handleLogout = () => {
-    setUnreadCount(0);
-    setNotificationUnreadCount(0);
-    setProfileOpen(false);
-    setNotificationOpen(false);
+    setUnreadCount(0); setNotificationUnreadCount(0);
+    setProfileOpen(false); setNotificationOpen(false);
     logout();
   };
 
@@ -195,507 +135,267 @@ function Navbar() {
     const next = !notificationOpen;
     setNotificationOpen(next);
     setProfileOpen(false);
-
     if (next && notificationUnreadCount > 0) {
       try {
         await api.patch("/notifications/read-all");
-        setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+        setNotifications((p) => p.map((n) => ({ ...n, isRead: true })));
         setNotificationUnreadCount(0);
-      } catch (error) {
-        console.error("Failed to mark notifications as read", error);
-      }
+      } catch {}
     }
   };
 
-  const handleNotificationClick = async (notification) => {
+  const handleNotificationClick = async (n) => {
     try {
-      if (!notification.isRead) {
-        await api.patch(`/notifications/${notification._id}/read`);
-        setNotifications((prev) =>
-          prev.map((item) =>
-            item._id === notification._id ? { ...item, isRead: true } : item
-          )
-        );
-        setNotificationUnreadCount((prev) => Math.max(0, prev - 1));
+      if (!n.isRead) {
+        await api.patch(`/notifications/${n._id}/read`);
+        setNotifications((p) => p.map((x) => x._id === n._id ? { ...x, isRead: true } : x));
+        setNotificationUnreadCount((p) => Math.max(0, p - 1));
       }
-    } catch (error) {
-      console.error("Failed to mark notification as read", error);
-    }
-
+    } catch {}
     setNotificationOpen(false);
-
-    if (notification.link) {
-      navigate(notification.link);
-    }
+    if (n.link) navigate(n.link);
   };
 
-  const handleDeleteNotification = async (event, notificationId) => {
-    event.stopPropagation();
-
+  const handleDeleteNotification = async (e, id) => {
+    e.stopPropagation();
+    setDeletingId(id);
     try {
-      setDeletingNotificationId(notificationId);
-
-      const targetNotification = notifications.find(
-        (item) => item._id === notificationId
-      );
-
-      await api.delete(`/notifications/${notificationId}`);
-
-      setNotifications((prev) => prev.filter((item) => item._id !== notificationId));
-
-      if (targetNotification && !targetNotification.isRead) {
-        setNotificationUnreadCount((prev) => Math.max(0, prev - 1));
-      }
-    } catch (error) {
-      console.error("Failed to delete notification", error);
-    } finally {
-      setDeletingNotificationId("");
-    }
+      const target = notifications.find((n) => n._id === id);
+      await api.delete(`/notifications/${id}`);
+      setNotifications((p) => p.filter((n) => n._id !== id));
+      if (target && !target.isRead) setNotificationUnreadCount((p) => Math.max(0, p - 1));
+    } catch {}
+    setDeletingId("");
   };
 
-  const handleClearAllNotifications = async () => {
+  const handleClearAll = async () => {
+    setClearingAll(true);
     try {
-      setClearingAllNotifications(true);
       await api.delete("/notifications");
-      setNotifications([]);
-      setNotificationUnreadCount(0);
-    } catch (error) {
-      console.error("Failed to clear notifications", error);
-    } finally {
-      setClearingAllNotifications(false);
-    }
+      setNotifications([]); setNotificationUnreadCount(0);
+    } catch {}
+    setClearingAll(false);
   };
 
   const isActive = (path) => location.pathname === path;
 
   const currentProfile = profileData || user;
   const userInitial = currentProfile?.name?.charAt(0)?.toUpperCase() || "U";
-
   const avatarSrc = useMemo(() => {
-    const avatar =
-      currentProfile?.avatar ||
-      currentProfile?.profileImage ||
-      currentProfile?.image ||
-      "";
-
-    if (!avatar) return "";
-    if (avatar.startsWith("http")) return avatar;
-    return `${API_BASE_URL}${avatar}`;
+    const a = currentProfile?.avatar || currentProfile?.profileImage || currentProfile?.image || "";
+    if (!a) return "";
+    return a.startsWith("http") ? a : `${API_BASE_URL}${a}`;
   }, [currentProfile]);
 
-  const renderNotificationTypeIcon = (type) => {
-    const iconClass = `navbar-notification-svg ${getNotificationVisual(type).className}`;
-
-    switch (type) {
-      case "support_ticket_created":
-      case "support_reply":
-      case "support_user_reply":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={iconClass}
-          >
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-        );
-
-      case "session_message":
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={iconClass}
-          >
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-        );
-
-      default:
-        return (
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={iconClass}
-          >
-            <path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
-            <path d="M10 20a2 2 0 0 0 4 0" />
-          </svg>
-        );
-    }
-  };
-
-  const getNotificationVisual = (type) => {
+  const notifIconClass = useCallback((type) => {
     const map = {
-      session_message: { className: "is-session-message" },
-      request_message: { className: "is-request-message" },
-      learn_request: { className: "is-learn-request" },
-      request_accepted: { className: "is-request-accepted" },
-      session_created: { className: "is-session-created" },
-      exchange_request: { className: "is-exchange-request" },
-      exchange_request_accepted: { className: "is-exchange-accepted" },
-      exchange_message: { className: "is-exchange-message" },
-      support_ticket_created: { className: "is-request-message" },
-      support_reply: { className: "is-session-message" },
-      support_user_reply: { className: "is-learn-request" },
+      session_message: "nv-icon-indigo", request_message: "nv-icon-blue",
+      learn_request: "nv-icon-orange", request_accepted: "nv-icon-green",
+      session_created: "nv-icon-purple", exchange_request: "nv-icon-pink",
+      exchange_request_accepted: "nv-icon-yellow", exchange_message: "nv-icon-cyan",
+      support_ticket_created: "nv-icon-blue", support_reply: "nv-icon-indigo",
+      support_user_reply: "nv-icon-orange",
     };
+    return map[type] || "nv-icon-gray";
+  }, []);
 
-    return map[type] || { className: "is-default" };
-  };
-
-  const formatNotificationTime = (value) => {
-    if (!value) return "";
-    const date = new Date(value);
-    const now = new Date();
-    const diffMinutes = Math.floor((now - date) / (1000 * 60));
-
-    if (diffMinutes < 1) return "Just now";
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-    const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-
-    return date.toLocaleDateString([], {
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const isSameDay = (dateA, dateB) => {
+  const notifSVG = (type) => {
+    const isChat = ["session_message", "request_message", "support_ticket_created", "support_reply", "support_user_reply"].includes(type);
+    if (isChat) return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    );
     return (
-      dateA.getFullYear() === dateB.getFullYear() &&
-      dateA.getMonth() === dateB.getMonth() &&
-      dateA.getDate() === dateB.getDate()
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
+        <path d="M10 20a2 2 0 0 0 4 0" />
+      </svg>
     );
   };
 
-  const groupedNotifications = useMemo(() => {
-    const now = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(now.getDate() - 1);
+  const fmtTime = (v) => {
+    if (!v) return "";
+    const d = new Date(v), now = new Date();
+    const m = Math.floor((now - d) / 60000);
+    if (m < 1) return "Just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+  };
 
-    const todayItems = [];
-    const yesterdayItems = [];
-    const earlierItems = [];
+  const sameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
-    notifications.forEach((notification) => {
-      const createdAt = new Date(notification.createdAt);
-
-      if (isSameDay(createdAt, now)) {
-        todayItems.push(notification);
-      } else if (isSameDay(createdAt, yesterday)) {
-        yesterdayItems.push(notification);
-      } else {
-        earlierItems.push(notification);
-      }
+  const groupedNotifs = useMemo(() => {
+    const now = new Date(), yest = new Date();
+    yest.setDate(now.getDate() - 1);
+    const t = [], y = [], e = [];
+    notifications.forEach((n) => {
+      const d = new Date(n.createdAt);
+      if (sameDay(d, now)) t.push(n);
+      else if (sameDay(d, yest)) y.push(n);
+      else e.push(n);
     });
-
-    return [
-      { title: "Today", items: todayItems },
-      { title: "Yesterday", items: yesterdayItems },
-      { title: "Earlier", items: earlierItems },
-    ].filter((group) => group.items.length > 0);
+    return [{ title: "Today", items: t }, { title: "Yesterday", items: y }, { title: "Earlier", items: e }]
+      .filter((g) => g.items.length > 0);
   }, [notifications]);
 
+  /* nav links config */
+  const publicLinks = [{ to: "/listings", label: "Tutor Listings" }];
+  const authLinks = [
+    { to: "/learn-listings", label: "Learn Listings" },
+    { to: "/skill-exchange",  label: "Skill Exchange" },
+    { to: "/requests",        label: "Requests" },
+    { to: "/sessions",        label: "Sessions" },
+    { to: "/chats",           label: "Chats", badge: unreadCount },
+    { to: "/help",            label: "Help" },
+  ];
+  const adminLinks = [
+    { to: "/admin",          label: "Dashboard" },
+    { to: "/admin/profile",  label: "Profile" },
+    { to: "/admin/users",    label: "Users" },
+    { to: "/admin/listings", label: "Listings" },
+    { to: "/admin/support",  label: "Support" },
+    { to: "/admin/audit",    label: "Audit Logs" },
+  ];
+
+  const navLinks = isAdmin
+    ? adminLinks
+    : [{ to: "/", label: "Home" }, ...publicLinks, ...(user ? authLinks : [])];
+
   return (
-    <nav className="navbar">
-      <div className="navbar-inner">
-        <Link to="/" className="navbar-brand" aria-label="PeerLearn Home">
-          <span className="navbar-brand-main">
-            <span className="navbar-brand-peer">Peer</span>
-            <span className="navbar-brand-learn">Learn</span>
+    <nav ref={navRef} className={`nv-bar ${scrolled ? "nv-scrolled" : ""}`}>
+      {/* progress shimmer line */}
+      <div className="nv-shimmer" />
+
+      <div className="nv-inner">
+
+        {/* ── Brand ── */}
+        <Link to="/" className="nv-brand" aria-label="PeerLearn Home">
+          <span className="nv-brand-logo">
+            <span className="nv-brand-peer">Peer</span>
+            <span className="nv-brand-learn">Learn</span>
           </span>
-          <span className="navbar-brand-subtitle">Skill Exchange Platform</span>
+          <span className="nv-brand-sub">Skill Exchange Platform</span>
         </Link>
 
+        {/* ── Mobile toggle ── */}
         <button
           type="button"
-          className={`navbar-toggle ${mobileOpen ? "is-open" : ""}`}
+          className={`nv-toggle ${mobileOpen ? "is-open" : ""}`}
           aria-label="Toggle navigation"
           aria-expanded={mobileOpen}
           onClick={() => {
-            setMobileOpen((prev) => {
-              const next = !prev;
-              if (next) {
-                setProfileOpen(false);
-                setNotificationOpen(false);
-              }
-              return next;
-            });
+            setMobileOpen((p) => { const next = !p; if (next) { setProfileOpen(false); setNotificationOpen(false); } return next; });
           }}
         >
-          <span />
-          <span />
-          <span />
+          <span /><span /><span />
         </button>
 
-        <div className={`navbar-links ${mobileOpen ? "is-open" : ""}`}>
-          <div className="navbar-links-left">
-            <Link to="/" className={`nav-link ${isActive("/") ? "active" : ""}`}>
-              Home
-            </Link>
+        {/* ── Links ── */}
+        <div className={`nv-links ${mobileOpen ? "is-open" : ""}`}>
 
-            {!isAdmin && (
-              <>
-                <Link
-                  to="/listings"
-                  className={`nav-link ${isActive("/listings") ? "active" : ""}`}
-                >
-                  Tutor Listings
-                </Link>
-
-                {user && (
-                  <>
-                    <Link
-                      to="/learn-listings"
-                      className={`nav-link ${isActive("/learn-listings") ? "active" : ""}`}
-                    >
-                      Learn Listings
-                    </Link>
-
-                    <Link
-                      to="/skill-exchange"
-                      className={`nav-link ${isActive("/skill-exchange") ? "active" : ""}`}
-                    >
-                      Skill Exchange
-                    </Link>
-
-                    <Link
-                      to="/requests"
-                      className={`nav-link ${isActive("/requests") ? "active" : ""}`}
-                    >
-                      Requests
-                    </Link>
-
-                    <Link
-                      to="/sessions"
-                      className={`nav-link ${isActive("/sessions") ? "active" : ""}`}
-                    >
-                      Sessions
-                    </Link>
-
-                    <Link
-                      to="/chats"
-                      className={`nav-link ${isActive("/chats") ? "active" : ""}`}
-                    >
-                      <span className="nav-chip">
-                        Chats
-                        {unreadCount > 0 && (
-                          <span className="badge badge-blue">{unreadCount}</span>
-                        )}
-                      </span>
-                    </Link>
-
-                    <Link
-                      to="/help"
-                      className={`nav-link ${isActive("/help") ? "active" : ""}`}
-                    >
-                      Help
-                    </Link>
-                  </>
-                )}
-              </>
-            )}
-
-            {isAdmin && (
-  <>
-    <Link
-      to="/admin"
-      className={`nav-link ${isActive("/admin") ? "active" : ""}`}
-    >
-      Admin Dashboard
-    </Link>
-
-    <Link
-      to="/admin/profile"
-      className={`nav-link ${isActive("/admin/profile") ? "active" : ""}`}
-    >
-      Profile
-    </Link>
-
-    <Link
-      to="/admin/users"
-      className={`nav-link ${isActive("/admin/users") ? "active" : ""}`}
-    >
-      Users
-    </Link>
-
-    <Link
-      to="/admin/listings"
-      className={`nav-link ${isActive("/admin/listings") ? "active" : ""}`}
-    >
-      Listings
-    </Link>
-
-    <Link
-      to="/admin/support"
-      className={`nav-link ${isActive("/admin/support") ? "active" : ""}`}
-    >
-      Support Tickets
-    </Link>
-
-    <Link
-      to="/admin/audit"
-      className={`nav-link ${isActive("/admin/audit") ? "active" : ""}`}
-    >
-      Audit Logs
-    </Link>
-  </>
-)}
+          {/* left: nav links */}
+          <div className="nv-links-left">
+            {navLinks.map(({ to, label, badge }) => (
+              <Link key={to} to={to} className={`nv-link ${isActive(to) ? "is-active" : ""}`}>
+                {label}
+                {badge > 0 && <span className="nv-badge">{badge > 99 ? "99+" : badge}</span>}
+              </Link>
+            ))}
           </div>
 
-          <div className="navbar-links-right">
+          {/* right: auth controls */}
+          <div className="nv-links-right">
             {user ? (
               <>
+                {/* ── Bell ── */}
                 <div
-                  className={`navbar-notification ${notificationOpen ? "is-open" : ""}`}
+                  className={`nv-notif ${notificationOpen ? "is-open" : ""}`}
                   ref={notificationMenuRef}
                 >
                   <button
                     type="button"
-                    className={`navbar-notification-trigger ${
-                      notificationOpen ? "is-open" : ""
-                    } ${bellPulse ? "has-pulse" : ""} ${
-                      notificationUnreadCount > 0 ? "has-unread" : ""
-                    }`}
-                    onClick={() => {
-                      setProfileOpen(false);
-                      handleOpenNotifications();
-                    }}
-                    aria-label="Open notifications"
-                    aria-expanded={notificationOpen}
+                    className={`nv-bell-btn ${bellPulse ? "has-pulse" : ""} ${notificationUnreadCount > 0 ? "has-unread" : ""} ${notificationOpen ? "is-open" : ""}`}
+                    onClick={() => { setProfileOpen(false); handleOpenNotifications(); }}
+                    aria-label="Notifications"
                   >
-                    <span className="navbar-bell" aria-hidden="true">
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.9"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="navbar-bell-icon"
-                      >
-                        <path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
-                        <path d="M10 20a2 2 0 0 0 4 0" />
-                      </svg>
-                    </span>
-
+                    <svg className="nv-bell-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
+                      <path d="M10 20a2 2 0 0 0 4 0" />
+                    </svg>
                     {notificationUnreadCount > 0 && (
-                      <span className="navbar-notification-badge">
-                        {notificationUnreadCount > 99 ? "99+" : notificationUnreadCount}
-                      </span>
+                      <span className="nv-bell-badge">{notificationUnreadCount > 99 ? "99+" : notificationUnreadCount}</span>
                     )}
                   </button>
 
-                  <div className="navbar-notification-menu">
-                    <div className="navbar-notification-head">
+                  {/* notification dropdown */}
+                  <div className="nv-notif-panel">
+                    <div className="nv-notif-head">
                       <div>
-                        <div className="navbar-notification-title">Notifications</div>
-                        <div className="navbar-notification-subtitle">
-                          Latest activity across chats, requests, sessions, and support
-                        </div>
+                        <div className="nv-notif-title">Notifications</div>
+                        <div className="nv-notif-subtitle">Activity across chats, requests and sessions</div>
                       </div>
-
-                      <div className="navbar-notification-head-actions">
+                      <div className="nv-notif-head-right">
                         {notifications.length > 0 && (
-                          <button
-                            type="button"
-                            className="navbar-notification-clear-all"
-                            onClick={handleClearAllNotifications}
-                            disabled={clearingAllNotifications}
-                          >
-                            {clearingAllNotifications ? "Clearing..." : "Clear all"}
+                          <button type="button" className="nv-clear-btn" onClick={handleClearAll} disabled={clearingAll}>
+                            {clearingAll ? "Clearing…" : "Clear all"}
                           </button>
                         )}
-
-                        <Link
-                          to="/notifications"
-                          className="navbar-notification-view-all"
-                          onClick={() => setNotificationOpen(false)}
-                        >
-                          View all
+                        <Link to="/notifications" className="nv-view-all" onClick={() => setNotificationOpen(false)}>
+                          View all →
                         </Link>
                       </div>
                     </div>
 
-                    <div className="navbar-notification-list">
+                    <div className="nv-notif-list">
                       {notifications.length === 0 ? (
-                        <div className="navbar-notification-empty">
-                          No notifications yet
+                        <div className="nv-notif-empty">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="nv-empty-icon">
+                            <path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
+                            <path d="M10 20a2 2 0 0 0 4 0" />
+                          </svg>
+                          <span>No notifications yet</span>
                         </div>
                       ) : (
-                        groupedNotifications.map((group) => (
-                          <div key={group.title} className="navbar-notification-group">
-                            <div className="navbar-notification-group-title">
-                              {group.title}
-                            </div>
-
-                            {group.items.slice(0, 4).map((notification) => {
-                              const visual = getNotificationVisual(notification.type);
-
-                              return (
-                                <div
-                                  key={notification._id}
-                                  className={`navbar-notification-item-wrap ${
-                                    !notification.isRead ? "is-unread" : ""
-                                  }`}
+                        groupedNotifs.map((group) => (
+                          <div key={group.title} className="nv-notif-group">
+                            <div className="nv-notif-group-label">{group.title}</div>
+                            {group.items.slice(0, 4).map((n) => (
+                              <div key={n._id} className={`nv-notif-row ${!n.isRead ? "is-unread" : ""}`}>
+                                <button
+                                  type="button"
+                                  className="nv-notif-item"
+                                  onClick={() => handleNotificationClick(n)}
                                 >
-                                  <button
-                                    type="button"
-                                    className={`navbar-notification-item ${
-                                      !notification.isRead ? "is-unread" : ""
-                                    }`}
-                                    onClick={() => handleNotificationClick(notification)}
-                                  >
-                                    <div
-                                      className={`navbar-notification-icon ${visual.className}`}
-                                    >
-                                      {renderNotificationTypeIcon(notification.type)}
+                                  <div className={`nv-notif-icon ${notifIconClass(n.type)}`}>
+                                    {notifSVG(n.type)}
+                                  </div>
+                                  <div className="nv-notif-body">
+                                    <div className="nv-notif-top">
+                                      <span className="nv-notif-name">{n.title}</span>
+                                      <span className="nv-notif-time">{fmtTime(n.createdAt)}</span>
                                     </div>
-
-                                    <div className="navbar-notification-content">
-                                      <div className="navbar-notification-item-top">
-                                        <span className="navbar-notification-item-title">
-                                          {notification.title}
-                                        </span>
-                                        <span className="navbar-notification-time">
-                                          {formatNotificationTime(notification.createdAt)}
-                                        </span>
-                                      </div>
-
-                                      <div className="navbar-notification-message">
-                                        {notification.message}
-                                      </div>
-                                    </div>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    className="navbar-notification-remove"
-                                    onClick={(event) =>
-                                      handleDeleteNotification(event, notification._id)
-                                    }
-                                    disabled={deletingNotificationId === notification._id}
-                                    aria-label="Remove notification"
-                                    title="Remove notification"
-                                  >
-                                    {deletingNotificationId === notification._id ? "..." : "✕"}
-                                  </button>
-                                </div>
-                              );
-                            })}
+                                    <div className="nv-notif-msg">{n.message}</div>
+                                  </div>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="nv-notif-del"
+                                  onClick={(e) => handleDeleteNotification(e, n._id)}
+                                  disabled={deletingId === n._id}
+                                  aria-label="Remove"
+                                >
+                                  {deletingId === n._id ? "…" : (
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                      <path d="M18 6 6 18M6 6l12 12" />
+                                    </svg>
+                                  )}
+                                </button>
+                              </div>
+                            ))}
                           </div>
                         ))
                       )}
@@ -703,122 +403,77 @@ function Navbar() {
                   </div>
                 </div>
 
+                {/* ── Profile ── */}
                 <div
-                  className={`navbar-profile ${profileOpen ? "is-open" : ""}`}
+                  className={`nv-profile ${profileOpen ? "is-open" : ""}`}
                   ref={profileMenuRef}
                 >
                   <button
                     type="button"
-                    className={`navbar-profile-trigger ${profileOpen ? "is-open" : ""}`}
-                    onClick={() => {
-                      setNotificationOpen(false);
-                      setProfileOpen((prev) => !prev);
-                    }}
-                    aria-label="Open profile menu"
-                    aria-expanded={profileOpen}
+                    className={`nv-profile-btn ${profileOpen ? "is-open" : ""}`}
+                    onClick={() => { setNotificationOpen(false); setProfileOpen((p) => !p); }}
+                    aria-label="Profile menu"
                   >
-                    <span className="navbar-profile-ring">
+                    <span className="nv-avatar-ring">
                       {avatarSrc ? (
-                        <img
-                          src={avatarSrc}
-                          alt={currentProfile?.name || "User"}
-                          className="navbar-avatar-image"
-                        />
+                        <img src={avatarSrc} alt={currentProfile?.name || "User"} className="nv-avatar-img" />
                       ) : (
-                        <span className="navbar-avatar">{userInitial}</span>
+                        <span className="nv-avatar-init">{userInitial}</span>
                       )}
                     </span>
-
-                    <span className="navbar-profile-copy">
-                      <span className="navbar-profile-name">
-                        {currentProfile?.name || "User"}
-                      </span>
-                      <span className="navbar-profile-id">
-                        {currentProfile?.publicId || "Student"}
-                      </span>
+                    <span className="nv-profile-info">
+                      <span className="nv-profile-name">{currentProfile?.name || "User"}</span>
+                      <span className="nv-profile-sub">{currentProfile?.publicId || "Student"}</span>
                     </span>
-
-                    <span className="navbar-profile-caret">⌄</span>
+                    <span className={`nv-caret ${profileOpen ? "is-up" : ""}`}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </span>
                   </button>
 
-                  <div className="navbar-profile-menu">
-                    <div className="navbar-profile-menu-arrow" />
-
-                    <div className="navbar-profile-menu-head">
-                      <div className="navbar-profile-menu-user">
-                        <span className="navbar-profile-menu-ring">
-                          {avatarSrc ? (
-                            <img
-                              src={avatarSrc}
-                              alt={currentProfile?.name || "User"}
-                              className="navbar-profile-menu-avatar-image"
-                            />
-                          ) : (
-                            <span className="navbar-profile-menu-avatar">
-                              {userInitial}
-                            </span>
-                          )}
-                        </span>
-
-                        <div>
-                          <div className="navbar-profile-menu-name">
-                            {currentProfile?.name || "User"}
-                          </div>
-                          <div className="navbar-profile-menu-email">
-                            {currentProfile?.email || ""}
-                          </div>
-                        </div>
+                  {/* profile dropdown */}
+                  <div className="nv-profile-panel">
+                    <div className="nv-profile-panel-arrow" />
+                    <div className="nv-profile-panel-head">
+                      <span className="nv-pm-ring">
+                        {avatarSrc ? (
+                          <img src={avatarSrc} alt={currentProfile?.name || "User"} className="nv-pm-avatar-img" />
+                        ) : (
+                          <span className="nv-pm-avatar-init">{userInitial}</span>
+                        )}
+                      </span>
+                      <div>
+                        <div className="nv-pm-name">{currentProfile?.name || "User"}</div>
+                        <div className="nv-pm-email">{currentProfile?.email || ""}</div>
                       </div>
                     </div>
 
-                    <Link
-                      to={isAdmin ? "/admin" : "/dashboard"}
-                      className="navbar-menu-item"
-                    >
-                      {isAdmin ? "Admin Dashboard" : "Dashboard"}
-                    </Link>
+                    <div className="nv-pm-divider" />
 
-                    {!isAdmin && (
+                    {isAdmin ? (
                       <>
-                        <Link to="/edit-profile" className="navbar-menu-item">
-                          Edit Profile
-                        </Link>
-
-                        <Link to="/support/my" className="navbar-menu-item">
-                          My Support Tickets
-                        </Link>
+                        {["/admin", "/admin/profile", "/admin/users", "/admin/listings", "/admin/support", "/admin/audit"].map((to, i) => (
+                          <Link key={to} to={to} className="nv-pm-item" style={{ "--di": i }}>
+                            {["Admin Dashboard", "Admin Profile", "Manage Users", "Listings", "Support Tickets", "Audit Logs"][i]}
+                          </Link>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        <Link to="/dashboard" className="nv-pm-item" style={{ "--di": 0 }}>Dashboard</Link>
+                        <Link to="/edit-profile" className="nv-pm-item" style={{ "--di": 1 }}>Edit Profile</Link>
+                        <Link to="/support/my" className="nv-pm-item" style={{ "--di": 2 }}>My Support Tickets</Link>
                       </>
                     )}
 
-                    {isAdmin && (
-  <>
-    <Link to="/admin/profile" className="navbar-menu-item">
-      Admin Profile
-    </Link>
-
-    <Link to="/admin/users" className="navbar-menu-item">
-      Manage Users
-    </Link>
-
-    <Link to="/admin/listings" className="navbar-menu-item">
-      Listings
-    </Link>
-
-    <Link to="/admin/support" className="navbar-menu-item">
-      Support Tickets
-    </Link>
-
-    <Link to="/admin/audit" className="navbar-menu-item">
-      Audit Logs
-    </Link>
-  </>
-)}
-
-                    <button
-                      type="button"
-                      className="navbar-menu-item navbar-menu-item-danger"
-                      onClick={handleLogout}
-                    >
+                    <div className="nv-pm-divider" />
+                    <button type="button" className="nv-pm-item nv-pm-logout" onClick={handleLogout}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                      </svg>
                       Logout
                     </button>
                   </div>
@@ -826,20 +481,12 @@ function Navbar() {
               </>
             ) : (
               <>
-                <Link
-                  to="/login"
-                  className={`nav-link ${isActive("/login") ? "active" : ""}`}
-                >
-                  Login
-                </Link>
-
-                <Link
-                  to="/register"
-                  className={`nav-link nav-link-register ${
-                    isActive("/register") ? "active" : ""
-                  }`}
-                >
-                  Register
+                <Link to="/login" className={`nv-link ${isActive("/login") ? "is-active" : ""}`}>Login</Link>
+                <Link to="/register" className="nv-register-btn">
+                  Get Started
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
                 </Link>
               </>
             )}

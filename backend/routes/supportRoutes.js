@@ -3,7 +3,8 @@ const multer = require("multer");
 const path = require("path");
 const router = express.Router();
 
-const { authMiddleware } = require("../middleware/authMiddleware");
+const authMiddleware = require("../middleware/authMiddleware");
+
 const {
   createSupportTicket,
   getMySupportTickets,
@@ -24,10 +25,22 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-router.post("/tickets", upload.single("file"), createSupportTicket);
+router.post(
+  "/tickets",
+  authMiddleware,
+  upload.single("file"),
+  createSupportTicket
+);
+
 router.get("/tickets/my", authMiddleware, getMySupportTickets);
 router.get("/tickets/unread-count", authMiddleware, getMySupportUnreadCount);
 router.get("/tickets/:ticketId/messages", authMiddleware, getSupportMessages);
-router.post("/messages", authMiddleware, upload.single("file"), sendSupportMessage);
+
+router.post(
+  "/messages",
+  authMiddleware,
+  upload.single("file"),
+  sendSupportMessage
+);
 
 module.exports = router;

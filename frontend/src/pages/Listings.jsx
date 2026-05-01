@@ -21,9 +21,9 @@ function Listings() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedListingId, setSelectedListingId] = useState(null);
-
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const [formData, setFormData] = useState({
     skillName: "",
@@ -97,38 +97,25 @@ function Listings() {
     return filtered.sort((a, b) => {
       const aId = String(a.tutor?.publicId || "").toLowerCase();
       const bId = String(b.tutor?.publicId || "").toLowerCase();
-
       const aExact = aId === q ? 1 : 0;
       const bExact = bId === q ? 1 : 0;
-
       return bExact - aExact;
     });
   }, [listings, searchTerm]);
 
   const handleChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleCreateListing = async (e) => {
     e.preventDefault();
-
     try {
       await api.post("/listings", {
         ...formData,
         price: Number(formData.price) || 0,
       });
-
-      setFormData({
-        skillName: "",
-        description: "",
-        level: "beginner",
-        mode: "online",
-        price: "",
-      });
-
+      setFormData({ skillName: "", description: "", level: "beginner", mode: "online", price: "" });
+      setShowCreateForm(false);
       setPageMessage("Tutor listing created successfully");
       showToast("Tutor listing created successfully", "success");
       fetchListings();
@@ -147,26 +134,19 @@ function Listings() {
 
   const confirmDelete = async () => {
     if (!selectedListingId) return;
-
     try {
       setDeletingListingId(selectedListingId);
       await api.delete(`/listings/${selectedListingId}`);
-
-      setListings((prev) =>
-        prev.filter((listing) => listing._id !== selectedListingId)
-      );
-
+      setListings((prev) => prev.filter((listing) => listing._id !== selectedListingId));
       setRequestedIds((prev) => {
         const next = new Set(prev);
         next.delete(selectedListingId);
         return next;
       });
-
       if (selectedListing?._id === selectedListingId) {
         setShowDetailsModal(false);
         setSelectedListing(null);
       }
-
       setPageMessage("Tutor listing deleted successfully");
       showToast("Tutor listing deleted successfully", "success");
     } catch (error) {
@@ -197,6 +177,7 @@ function Listings() {
     setSelectedListing(null);
   };
 
+  /* ── THIS IS THE EXACT ORIGINAL handleRequest ── */
   const handleRequest = async (listingId) => {
     if (!user) {
       showToast("Please log in to send a request", "error");
@@ -232,40 +213,30 @@ function Listings() {
 
   const formatTime12Hour = (time) => {
     if (!time || !time.includes(":")) return time || "";
-
     const [hourString, minute] = time.split(":");
     const hour = Number(hourString);
-
     if (Number.isNaN(hour)) return time;
-
     const suffix = hour >= 12 ? "PM" : "AM";
     const normalizedHour = hour % 12 || 12;
-
     return `${normalizedHour}:${minute} ${suffix}`;
   };
 
   const getAvailabilityLines = (availability = []) => {
     const activeDays = availability.filter((day) => (day.slots || []).length > 0);
-
     if (activeDays.length === 0) return ["No availability added"];
-
     return activeDays.map((day) => {
       const slots = (day.slots || [])
-        .map(
-          (slot) =>
-            `${formatTime12Hour(slot.start)}-${formatTime12Hour(slot.end)}`
-        )
+        .map((slot) => `${formatTime12Hour(slot.start)}-${formatTime12Hour(slot.end)}`)
         .join(", ");
-
       return `${day.day}: ${slots}`;
     });
   };
 
   const getBadgeClass = (badge) => {
-    if (badge === "Top Tutor") return "listing-trust-pill listing-badge-top";
-    if (badge === "Excellent") return "listing-trust-pill listing-badge-excellent";
-    if (badge === "Trusted") return "listing-trust-pill listing-badge-trusted";
-    return "listing-trust-pill listing-badge-beginner";
+    if (badge === "Top Tutor") return "ls-badge ls-badge-top";
+    if (badge === "Excellent") return "ls-badge ls-badge-excellent";
+    if (badge === "Trusted") return "ls-badge ls-badge-trusted";
+    return "ls-badge ls-badge-default";
   };
 
   const getTutorInitials = (name = "") => {
@@ -275,376 +246,337 @@ function Listings() {
     return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
   };
 
-  const selectedIsOwnListing =
-    !!user && !!selectedListing && user._id === selectedListing.tutor?._id;
-  const selectedAlreadyRequested =
-    !!selectedListing && requestedIds.has(selectedListing._id);
-  const selectedIsLoading =
-    !!selectedListing && loadingRequestId === selectedListing._id;
-  const selectedIsDeleting =
-    !!selectedListing && deletingListingId === selectedListing._id;
-
+  const selectedIsOwnListing = !!user && !!selectedListing && user._id === selectedListing.tutor?._id;
+  const selectedAlreadyRequested = !!selectedListing && requestedIds.has(selectedListing._id);
+  const selectedIsLoading = !!selectedListing && loadingRequestId === selectedListing._id;
+  const selectedIsDeleting = !!selectedListing && deletingListingId === selectedListing._id;
   const selectedAvailabilityLines = selectedListing
     ? getAvailabilityLines(selectedListing.tutor?.availability || [])
     : [];
 
   return (
-    <div className="page">
-      <div className="listing-page-header">
-        <div>
-          <div className="section-eyebrow">Tutor Discovery</div>
-          <h1 className="page-title">Tutor Listings</h1>
-          <p className="listing-page-subtitle">
-            Compare tutors by skill, teaching level, mode, price, rating, reputation,
-            and availability before sending a request.
+    <div className="page ls-page">
+
+      {/* PAGE HEADER */}
+      <div className="ls-page-header">
+        <div className="ls-page-header-left">
+          <span className="ls-eyebrow">Tutor Discovery</span>
+          <h1 className="ls-page-title">Tutor Listings</h1>
+          <p className="ls-page-sub">
+            Compare tutors by skill, level, mode, price, rating, and availability before sending a request.
           </p>
         </div>
+        {user?.role === "tutor" && (
+          <button
+            className={`ls-create-toggle ${showCreateForm ? "is-active" : ""}`}
+            onClick={() => setShowCreateForm((p) => !p)}
+          >
+            {showCreateForm ? (
+              <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>Cancel</>
+            ) : (
+              <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>Create Listing</>
+            )}
+          </button>
+        )}
       </div>
 
       {pageMessage && (
-        <div className="card" style={{ marginBottom: "16px", color: "#1d4ed8" }}>
-          {pageMessage}
-        </div>
+        <div className="ls-page-message">{pageMessage}</div>
       )}
 
-      {user?.role === "tutor" && (
-        <div className="card">
-          <h2 className="card-title">Create Tutor Listing</h2>
-
-          <form className="form-grid" onSubmit={handleCreateListing}>
-            <input
-              type="text"
-              name="skillName"
-              placeholder="Skill name"
-              value={formData.skillName}
-              onChange={handleChange}
-              required
-            />
-
-            <textarea
-              name="description"
-              placeholder="Describe what you can teach"
-              value={formData.description}
-              onChange={handleChange}
-              required
-            />
-
-            <select name="level" value={formData.level} onChange={handleChange}>
-              <option value="beginner">beginner</option>
-              <option value="intermediate">intermediate</option>
-              <option value="advanced">advanced</option>
-            </select>
-
-            <select name="mode" value={formData.mode} onChange={handleChange}>
-              <option value="online">online</option>
-              <option value="offline">offline</option>
-              <option value="both">both</option>
-            </select>
-
-            <input
-              type="number"
-              name="price"
-              placeholder="Price"
-              value={formData.price}
-              onChange={handleChange}
-            />
-
-            <div className="actions">
-              <button type="submit">Create Listing</button>
+      {/* CREATE FORM */}
+      {user?.role === "tutor" && showCreateForm && (
+        <div className="ls-create-card">
+          <div className="ls-create-card-head">
+            <h2 className="ls-card-title">Create Tutor Listing</h2>
+            <p className="ls-card-sub">Fill in your skill details to be discovered by learners.</p>
+          </div>
+          <form className="ls-create-form" onSubmit={handleCreateListing}>
+            <div className="ls-form-row">
+              <div className="ls-field">
+                <label>Skill Name</label>
+                <input type="text" name="skillName" placeholder="e.g. Data Structures, Calculus…"
+                  value={formData.skillName} onChange={handleChange} required />
+              </div>
+              <div className="ls-field">
+                <label>Price (৳)</label>
+                <input type="number" name="price" placeholder="0 = Free"
+                  value={formData.price} onChange={handleChange} />
+              </div>
+            </div>
+            <div className="ls-field ls-field-full">
+              <label>Description</label>
+              <textarea name="description" placeholder="Describe what you can teach…"
+                value={formData.description} onChange={handleChange} required rows={3} />
+            </div>
+            <div className="ls-form-row">
+              <div className="ls-field">
+                <label>Level</label>
+                <div className="ls-select-wrap">
+                  <select name="level" value={formData.level} onChange={handleChange}>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                  <svg className="ls-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                </div>
+              </div>
+              <div className="ls-field">
+                <label>Mode</label>
+                <div className="ls-select-wrap">
+                  <select name="mode" value={formData.mode} onChange={handleChange}>
+                    <option value="online">Online</option>
+                    <option value="offline">Offline</option>
+                    <option value="both">Both</option>
+                  </select>
+                  <svg className="ls-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                </div>
+              </div>
+            </div>
+            <div className="ls-form-actions">
+              <button type="submit" className="ls-btn-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+                Publish Listing
+              </button>
+              <button type="button" className="ls-btn-ghost" onClick={() => setShowCreateForm(false)}>Cancel</button>
             </div>
           </form>
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: "18px" }}>
-        <h2 className="card-title" style={{ fontSize: "20px" }}>
-          Search Tutors
-        </h2>
-        <input
-          type="text"
-          placeholder="Search by skill, tutor name, email, or Student ID..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <div className="listing-search-meta">
-          Showing {filteredListings.length} of {listings.length} listings
-        </div>
-      </div>
-
-      <div>
-        <h2 className="section-title">Available Tutors</h2>
-
-        {filteredListings.length === 0 ? (
-          <div className="empty-state">No tutor listings matched your search.</div>
-        ) : (
-          <div className="listing-grid">
-            {filteredListings.map((listing) => {
-              const alreadyRequested = requestedIds.has(listing._id);
-              const isOwnListing = user && user._id === listing.tutor?._id;
-              const isLoading = loadingRequestId === listing._id;
-              const isDeleting = deletingListingId === listing._id;
-
-              const tutorBadge = listing.tutor?.badge || "Beginner";
-              const tutorName = listing.tutor?.name || "Tutor";
-
-              return (
-                <div key={listing._id} className="listing-card listing-card-compact">
-                  <div className="listing-card-header">
-                    <div className="listing-card-main">
-                      <h3 className="listing-skill listing-skill-compact">
-                        {listing.skillName}
-                      </h3>
-
-                      <div className="listing-tutor-row listing-tutor-row-compact">
-                        <div className="listing-tutor-identity">
-                          {listing.tutor?.avatar ? (
-                            <img
-                              src={listing.tutor.avatar}
-                              alt={tutorName}
-                              className="listing-tutor-avatar"
-                            />
-                          ) : (
-                            <div className="listing-tutor-avatar listing-tutor-avatar-fallback">
-                              {getTutorInitials(tutorName)}
-                            </div>
-                          )}
-
-                          <span className="listing-tutor-name">{tutorName}</span>
-                        </div>
-
-                        <span className={getBadgeClass(tutorBadge)}>{tutorBadge}</span>
-                      </div>
-
-                      <p className="listing-desc listing-desc-compact">
-                        {listing.description?.length > 95
-                          ? `${listing.description.slice(0, 95)}...`
-                          : listing.description}
-                      </p>
-                    </div>
-
-                    <div className="listing-chip-group listing-chip-group-compact">
-                      <span className="badge badge-blue">{listing.level}</span>
-                      <span className="badge badge-yellow">{listing.mode}</span>
-                    </div>
-                  </div>
-
-                  <div className="listing-stat-row">
-                    <div className="listing-stat-pill">
-                      <span className="listing-stat-label">Rating</span>
-                      <span className="listing-stat-value">
-                        ⭐{" "}
-                        {listing.tutor?.ratingAvg?.toFixed?.(1) ||
-                          listing.tutor?.ratingAvg ||
-                          0}
-                      </span>
-                    </div>
-
-                    <div className="listing-stat-pill">
-                      <span className="listing-stat-label">Price</span>
-                      <span className="listing-stat-value">
-                        {listing.price > 0 ? `৳ ${listing.price}` : "Free"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="listing-card-footer">
-                    {!user ? (
-                      <div className="listing-guidance-box">
-                        Sign in to send a request and start chatting with this tutor.
-                      </div>
-                    ) : !isOwnListing ? (
-                      <div className="listing-primary-action">
-                        <button
-                          type="button"
-                          onClick={() => handleRequest(listing._id)}
-                          disabled={alreadyRequested || isLoading}
-                          className={`listing-request-btn ${
-                            alreadyRequested ? "secondary" : ""
-                          }`}
-                        >
-                          {isLoading
-                            ? "Sending..."
-                            : alreadyRequested
-                            ? "Requested"
-                            : "Request Session"}
-                        </button>
-
-                        <div className="listing-action-hint">
-                          {alreadyRequested
-                            ? "You already sent a request for this listing."
-                            : "Send a direct request to start the process."}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="listing-primary-action">
-                        <button
-                          type="button"
-                          className="danger listing-request-btn"
-                          onClick={() => handleDeleteListing(listing._id)}
-                          disabled={isDeleting}
-                        >
-                          {isDeleting ? "Deleting..." : "Delete Listing"}
-                        </button>
-
-                        <div className="listing-action-hint">
-                          This is your own tutor listing. You can delete it anytime.
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="listing-secondary-actions">
-                      <button
-                        type="button"
-                        className="secondary listing-secondary-btn"
-                        onClick={() => openDetailsModal(listing)}
-                      >
-                        Show Details
-                      </button>
-
-                      <Link
-                        className="secondary listing-link-button listing-secondary-btn"
-                        to={`/tutor-profile/${listing.tutor?._id}`}
-                      >
-                        View Tutor Profile
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      {/* SEARCH */}
+      <div className="ls-search-bar">
+        <span className="ls-search-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+        </span>
+        <input type="text" placeholder="Search by skill, tutor name, email, or Student ID…"
+          value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        {searchTerm && (
+          <button className="ls-search-clear" onClick={() => setSearchTerm("")} aria-label="Clear">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
         )}
       </div>
 
-      {showDetailsModal && selectedListing && (
-        <div className="modal-overlay" onClick={closeDetailsModal}>
-          <div
-            className="modal-box listing-details-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="listing-details-header">
-              <div>
-                <h3 className="modal-title">{selectedListing.skillName}</h3>
-                <p className="listing-details-subtitle">
-                  Taught by {selectedListing.tutor?.name}
-                </p>
-              </div>
+      <div className="ls-results-meta">
+        <span className="ls-results-count">
+          <strong>{filteredListings.length}</strong> of <strong>{listings.length}</strong> tutors
+        </span>
+        {searchTerm && <span className="ls-results-query">for "<em>{searchTerm}</em>"</span>}
+      </div>
 
-              <button
-                type="button"
-                className="secondary"
-                onClick={closeDetailsModal}
-              >
-                Close
+      {/* GRID */}
+      {filteredListings.length === 0 ? (
+        <div className="ls-empty">
+          <div className="ls-empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+            </svg>
+          </div>
+          <div className="ls-empty-title">No listings found</div>
+          <div className="ls-empty-sub">Try a different search term or clear the filter.</div>
+          {searchTerm && <button className="ls-btn-ghost ls-btn-sm" onClick={() => setSearchTerm("")}>Clear search</button>}
+        </div>
+      ) : (
+        <div className="ls-grid">
+          {filteredListings.map((listing, idx) => {
+            const alreadyRequested = requestedIds.has(listing._id);
+            const isOwnListing = user && user._id === listing.tutor?._id;
+            const isLoading = loadingRequestId === listing._id;
+            const isDeleting = deletingListingId === listing._id;
+            const tutorBadge = listing.tutor?.badge || "Beginner";
+            const tutorName = listing.tutor?.name || "Tutor";
+
+            return (
+              <div key={listing._id} className="ls-card" style={{ "--card-i": idx }}>
+
+                {/* identity bar */}
+                <div className="ls-card-identity">
+                  <div className="ls-tutor-left">
+                    {listing.tutor?.avatar ? (
+                      <img src={listing.tutor.avatar} alt={tutorName} className="ls-avatar" />
+                    ) : (
+                      <div className="ls-avatar ls-avatar-init">{getTutorInitials(tutorName)}</div>
+                    )}
+                    <div className="ls-tutor-info">
+                      <span className="ls-tutor-name">{tutorName}</span>
+                      <span className="ls-tutor-pid">{listing.tutor?.publicId || "—"}</span>
+                    </div>
+                  </div>
+                  <span className={getBadgeClass(tutorBadge)}>{tutorBadge}</span>
+                </div>
+
+                {/* body */}
+                <div className="ls-card-body">
+                  <div className="ls-skill-row">
+                    <h3 className="ls-skill">{listing.skillName}</h3>
+                    <div className="ls-tags">
+                      <span className="ls-tag ls-tag-blue">{listing.level}</span>
+                      <span className="ls-tag ls-tag-purple">{listing.mode}</span>
+                    </div>
+                  </div>
+                  <p className="ls-desc">
+                    {listing.description?.length > 90
+                      ? `${listing.description.slice(0, 90)}…`
+                      : listing.description}
+                  </p>
+                </div>
+
+                {/* stats */}
+                <div className="ls-stats-row">
+                  <div className="ls-stat-box">
+                    <span className="ls-stat-label">Rating</span>
+                    <span className="ls-stat-val">
+                      ⭐ {listing.tutor?.ratingAvg?.toFixed?.(1) ?? "0.0"}
+                      <span className="ls-stat-sub"> ({listing.tutor?.ratingCount ?? 0})</span>
+                    </span>
+                  </div>
+                  <div className="ls-stat-box">
+                    <span className="ls-stat-label">Price</span>
+                    <span className="ls-stat-val ls-price">
+                      {listing.price > 0 ? `৳ ${listing.price}` : "Free"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* footer */}
+                <div className="ls-card-footer">
+                  {!user ? (
+                    <div className="ls-notice">Sign in to send a request to this tutor.</div>
+                  ) : !isOwnListing ? (
+                    <div className="ls-primary-action">
+                      <button
+                        className={`ls-btn-request ${alreadyRequested ? "is-done" : ""}`}
+                        onClick={() => handleRequest(listing._id)}
+                        disabled={alreadyRequested || isLoading}
+                      >
+                        {isLoading ? (
+                          <><span className="ls-spinner" /> Sending…</>
+                        ) : alreadyRequested ? (
+                          <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>Requested</>
+                        ) : (
+                          <><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7" /></svg>Request Session</>
+                        )}
+                      </button>
+                      <div className="ls-action-hint">
+                        {alreadyRequested ? "You already sent a request." : "Send a direct request to start."}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="ls-primary-action">
+                      <button className="ls-btn-danger ls-btn-full"
+                        onClick={() => handleDeleteListing(listing._id)} disabled={isDeleting}>
+                        {isDeleting ? <><span className="ls-spinner ls-spinner-red" /> Deleting…</> : "Delete Listing"}
+                      </button>
+                      <div className="ls-action-hint">This is your listing. You can delete it anytime.</div>
+                    </div>
+                  )}
+
+                  <div className="ls-secondary-row">
+                    <button className="ls-btn-ghost ls-btn-sm" onClick={() => openDetailsModal(listing)}>
+                      Details
+                    </button>
+                    <Link className="ls-btn-ghost ls-btn-sm" to={`/tutor-profile/${listing.tutor?._id}`}>
+                      Profile
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* DETAILS MODAL */}
+      {showDetailsModal && selectedListing && (
+        <div className="ls-modal-overlay" onClick={closeDetailsModal}>
+          <div className="ls-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ls-modal-head">
+              <div className="ls-modal-tutor-row">
+                {selectedListing.tutor?.avatar ? (
+                  <img src={selectedListing.tutor.avatar} alt="" className="ls-modal-avatar" />
+                ) : (
+                  <div className="ls-modal-avatar ls-avatar-init">{getTutorInitials(selectedListing.tutor?.name || "")}</div>
+                )}
+                <div>
+                  <div className="ls-modal-tutor-name">{selectedListing.tutor?.name}</div>
+                  <div className="ls-modal-tutor-pid">{selectedListing.tutor?.publicId || "—"}</div>
+                </div>
+              </div>
+              <button className="ls-modal-close" onClick={closeDetailsModal}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
             </div>
 
-            <div className="listing-chip-group listing-details-chips">
-              <span className="badge badge-blue">{selectedListing.level}</span>
-              <span className="badge badge-yellow">{selectedListing.mode}</span>
-              <span
-                className={getBadgeClass(selectedListing.tutor?.badge || "Beginner")}
-              >
+            <h2 className="ls-modal-title">{selectedListing.skillName}</h2>
+
+            <div className="ls-modal-tags">
+              <span className="ls-tag ls-tag-blue">{selectedListing.level}</span>
+              <span className="ls-tag ls-tag-purple">{selectedListing.mode}</span>
+              <span className={getBadgeClass(selectedListing.tutor?.badge || "Beginner")}>
                 {selectedListing.tutor?.badge || "Beginner"}
               </span>
             </div>
 
-            <div className="listing-details-section">
-              <span className="listing-meta-label">Description</span>
-              <p className="listing-details-text">{selectedListing.description}</p>
+            <div className="ls-modal-section">
+              <div className="ls-modal-label">Description</div>
+              <p className="ls-modal-text">{selectedListing.description}</p>
             </div>
 
-            <div className="listing-details-grid">
-              <div className="listing-details-card">
-                <span className="listing-meta-label">Price</span>
-                <span className="listing-rating-value">
-                  {selectedListing.price > 0
-                    ? `৳ ${selectedListing.price}`
-                    : "Free / Negotiable"}
-                </span>
-              </div>
-
-              <div className="listing-details-card">
-                <span className="listing-meta-label">Rating</span>
-                <span className="listing-rating-value">
-                  ⭐{" "}
-                  {selectedListing.tutor?.ratingAvg?.toFixed?.(1) ||
-                    selectedListing.tutor?.ratingAvg ||
-                    0}
-                </span>
-              </div>
-
-              <div className="listing-details-card">
-                <span className="listing-meta-label">Total Reviews</span>
-                <span className="listing-rating-value">
-                  {selectedListing.tutor?.ratingCount || 0}
-                </span>
-              </div>
-
-              <div className="listing-details-card">
-                <span className="listing-meta-label">Student ID</span>
-                <span className="listing-meta-value">
-                  {selectedListing.tutor?.publicId || "No ID yet"}
-                </span>
-              </div>
+            <div className="ls-modal-grid-4">
+              {[
+                { label: "Price",      val: selectedListing.price > 0 ? `৳ ${selectedListing.price}` : "Free / Negotiable" },
+                { label: "Rating",     val: `⭐ ${selectedListing.tutor?.ratingAvg?.toFixed?.(1) ?? 0}` },
+                { label: "Reviews",    val: selectedListing.tutor?.ratingCount ?? 0 },
+                { label: "Student ID", val: selectedListing.tutor?.publicId || "No ID yet" },
+              ].map(({ label, val }) => (
+                <div key={label} className="ls-modal-stat">
+                  <span className="ls-modal-stat-label">{label}</span>
+                  <span className="ls-modal-stat-val">{val}</span>
+                </div>
+              ))}
             </div>
 
-            <div className="listing-details-section">
-              <span className="listing-meta-label">Email</span>
-              <p className="listing-details-text">{selectedListing.tutor?.email}</p>
+            <div className="ls-modal-section">
+              <div className="ls-modal-label">Email</div>
+              <p className="ls-modal-text">{selectedListing.tutor?.email}</p>
             </div>
 
-            <div className="listing-details-section">
-              <span className="listing-meta-label">Availability</span>
-              <div className="listing-availability-list">
-                {selectedAvailabilityLines.map((line, index) => (
-                  <div key={`${line}-${index}`} className="listing-availability-line">
-                    {line}
-                  </div>
+            <div className="ls-modal-section">
+              <div className="ls-modal-label">Availability</div>
+              <div className="ls-avail-list">
+                {selectedAvailabilityLines.map((line, i) => (
+                  <div key={`${line}-${i}`} className="ls-avail-row">{line}</div>
                 ))}
               </div>
             </div>
 
-            <div className="listing-details-footer">
-              <div className="listing-details-actions">
-                <Link
-                  className="secondary listing-link-button listing-modal-action-btn"
-                  to={`/tutor-profile/${selectedListing.tutor?._id}`}
-                  onClick={closeDetailsModal}
+            <div className="ls-modal-footer">
+              <Link className="ls-btn-ghost ls-modal-action"
+                to={`/tutor-profile/${selectedListing.tutor?._id}`}
+                onClick={closeDetailsModal}>
+                View Full Profile
+              </Link>
+              {!user ? (
+                <div className="ls-notice">Sign in to send a request.</div>
+              ) : !selectedIsOwnListing ? (
+                <button
+                  className={`ls-btn-request ls-modal-action ${selectedAlreadyRequested ? "is-done" : ""}`}
+                  onClick={() => handleRequest(selectedListing._id)}
+                  disabled={selectedAlreadyRequested || selectedIsLoading}
                 >
-                  View Tutor Profile
-                </Link>
-
-                {!user ? (
-                  <div className="listing-guidance-box listing-guidance-box-modal">
-                    Sign in to send a request and start chatting with this tutor.
-                  </div>
-                ) : !selectedIsOwnListing ? (
-                  <button
-                    type="button"
-                    onClick={() => handleRequest(selectedListing._id)}
-                    disabled={selectedAlreadyRequested || selectedIsLoading}
-                    className={`listing-modal-action-btn ${
-                      selectedAlreadyRequested ? "secondary" : ""
-                    }`}
-                  >
-                    {selectedIsLoading
-                      ? "Sending..."
-                      : selectedAlreadyRequested
-                      ? "Requested"
-                      : "Request Session"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="danger listing-modal-action-btn"
-                    onClick={() => handleDeleteListing(selectedListing._id)}
-                    disabled={selectedIsDeleting}
-                  >
-                    {selectedIsDeleting ? "Deleting..." : "Delete Listing"}
-                  </button>
-                )}
-              </div>
+                  {selectedIsLoading ? <><span className="ls-spinner" /> Sending…</>
+                    : selectedAlreadyRequested ? "✓ Requested"
+                    : "Request Session"}
+                </button>
+              ) : (
+                <button className="ls-btn-danger ls-modal-action"
+                  onClick={() => handleDeleteListing(selectedListing._id)} disabled={selectedIsDeleting}>
+                  {selectedIsDeleting ? "Deleting…" : "Delete Listing"}
+                </button>
+              )}
             </div>
           </div>
         </div>
