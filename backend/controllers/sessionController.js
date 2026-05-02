@@ -29,25 +29,64 @@ const parseTimeToMinutes = (time) => {
   return hour * 60 + minute;
 };
 
-const isWithinTutorAvailability = (availability = [], startTime, endTime) => {
-  const start = new Date(startTime);
-  const end = new Date(endTime);
+const parseLocalDateTime = (value) => {
+  if (!value) return null;
 
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
-  if (end <= start) return false;
+  const normalized = String(value).trim();
 
-  const startDay = DAY_MAP[start.getDay()];
-  const endDay = DAY_MAP[end.getDay()];
+  // Handles datetime-local format: 2026-05-11T14:00
+  if (normalized.includes("T")) {
+    const [datePart, timePart] = normalized.split("T");
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour, minute] = timePart.slice(0, 5).split(":").map(Number);
 
-  if (startDay !== endDay) return false;
+    if (
+      [year, month, day, hour, minute].some(Number.isNaN) ||
+      hour < 0 ||
+      hour > 23 ||
+      minute < 0 ||
+      minute > 59
+    ) {
+      return null;
+    }
 
-  const matchingDay = availability.find((item) => item.day === startDay);
-  if (!matchingDay || !Array.isArray(matchingDay.slots) || matchingDay.slots.length === 0) {
-    return false;
+    const date = new Date(year, month - 1, day, hour, minute);
+
+    return {
+      date,
+      dayName: DAY_MAP[date.getDay()],
+      minutes: hour * 60 + minute,
+    };
   }
 
-  const startMinutes = start.getHours() * 60 + start.getMinutes();
-  const endMinutes = end.getHours() * 60 + end.getMinutes();
+  // Fallback for ISO/date strings
+  const date = new Date(normalized);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return {
+    date,
+    dayName: DAY_MAP[date.getDay()],
+    minutes: date.getHours() * 60 + date.getMinutes(),
+  };
+};
+
+const isWithinTutorAvailability = (availability = [], startTime, endTime) => {
+  const start = parseLocalDateTime(startTime);
+  const end = parseLocalDateTime(endTime);
+
+  if (!start || !end) return false;
+  if (end.date <= start.date) return false;
+  if (start.dayName !== end.dayName) return false;
+
+  const matchingDay = availability.find((item) => item.day === start.dayName);
+
+  if (
+    !matchingDay ||
+    !Array.isArray(matchingDay.slots) ||
+    matchingDay.slots.length === 0
+  ) {
+    return false;
+  }
 
   return matchingDay.slots.some((slot) => {
     const slotStart = parseTimeToMinutes(slot.start);
@@ -55,7 +94,7 @@ const isWithinTutorAvailability = (availability = [], startTime, endTime) => {
 
     if (slotStart === null || slotEnd === null) return false;
 
-    return startMinutes >= slotStart && endMinutes <= slotEnd;
+    return start.minutes >= slotStart && end.minutes <= slotEnd;
   });
 };
 

@@ -3,7 +3,11 @@ const TeachListing = require("../models/TeachListing");
 const LearnListing = require("../models/LearnListing");
 const SkillExchange = require("../models/SkillExchange");
 const SupportTicket = require("../models/SupportTicket");
+const SupportMessage = require("../models/SupportMessage");
 const AuditLog = require("../models/AuditLog");
+const { createAndEmitNotification } = require("./notificationController");
+
+const isSuperAdmin = (user) => user?.isAdmin && user?.adminRole === "super_admin";
 
 const createAuditLog = async ({
   admin,
@@ -12,6 +16,7 @@ const createAuditLog = async ({
   targetId = null,
   targetLabel = "",
   details = "",
+  snapshot = {},
 }) => {
   try {
     if (!admin || !action) return;
@@ -23,6 +28,7 @@ const createAuditLog = async ({
       targetId,
       targetLabel,
       details,
+      snapshot,
     });
   } catch (error) {
     console.error("Failed to create audit log:", error.message);
@@ -36,6 +42,8 @@ const getAdminDashboard = async (req, res) => {
       tutors,
       learners,
       blockedUsers,
+      admins,
+      blockedAdmins,
       teachListings,
       learnListings,
       exchanges,
@@ -53,6 +61,8 @@ const getAdminDashboard = async (req, res) => {
       User.countDocuments({ isAdmin: false, role: "tutor" }),
       User.countDocuments({ isAdmin: false, role: "learner" }),
       User.countDocuments({ isAdmin: false, accountStatus: "blocked" }),
+      User.countDocuments({ isAdmin: true }),
+      User.countDocuments({ isAdmin: true, accountStatus: "blocked" }),
 
       TeachListing.countDocuments(),
       LearnListing.countDocuments(),
@@ -101,10 +111,13 @@ const getAdminDashboard = async (req, res) => {
         tutors,
         learners,
         blockedUsers,
+        admins,
+        blockedAdmins,
         teachListings,
         learnListings,
         exchanges,
-        openTickets: openTickets + inProgressTickets,
+        openTickets,
+        activeTickets: openTickets + inProgressTickets,
         inProgressTickets,
         resolvedTickets,
         closedTickets,
@@ -138,6 +151,10 @@ const getAllUsers = async (req, res) => {
     if (role) {
       if (role === "admin") {
         query.isAdmin = true;
+        query.adminRole = "admin";
+      } else if (role === "super_admin") {
+        query.isAdmin = true;
+        query.adminRole = "super_admin";
       } else {
         query.role = role;
         query.isAdmin = { $ne: true };
@@ -164,8 +181,14 @@ const blockUser = async (req, res) => {
       return res.status(400).json({ message: "You cannot block yourself" });
     }
 
-    if (user.isAdmin) {
-      return res.status(400).json({ message: "Admin account cannot be blocked here" });
+    if (user.adminRole === "super_admin") {
+      return res.status(403).json({ message: "Super admin cannot be blocked" });
+    }
+
+    if (user.isAdmin && !isSuperAdmin(req.user)) {
+      return res.status(403).json({
+        message: "Only super admin can block admin accounts",
+      });
     }
 
     user.accountStatus = "blocked";
@@ -173,21 +196,26 @@ const blockUser = async (req, res) => {
     user.blockedAt = new Date();
     user.activeSessionToken = null;
 
+    if (user.isAdmin) {
+      user.isSupportAvailable = false;
+    }
+
     await user.save();
 
     await createAuditLog({
       admin: req.user._id,
-      action: "Blocked user",
+      action: user.isAdmin ? "Blocked admin" : "Blocked user",
       targetType: "User",
       targetId: user._id,
       targetLabel: `${user.name} (${user.email})`,
       details: reason.trim(),
+      snapshot: user.toObject(),
     });
 
     const updatedUser = await User.findById(user._id).select("-password");
 
     res.json({
-      message: "User blocked successfully",
+      message: user.isAdmin ? "Admin blocked successfully" : "User blocked successfully",
       user: updatedUser,
     });
   } catch (error) {
@@ -201,6 +229,12 @@ const unblockUser = async (req, res) => {
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    if (user.isAdmin && !isSuperAdmin(req.user)) {
+      return res.status(403).json({
+        message: "Only super admin can unblock admin accounts",
+      });
+    }
+
     user.accountStatus = "active";
     user.blockedReason = "";
     user.blockedAt = null;
@@ -209,16 +243,17 @@ const unblockUser = async (req, res) => {
 
     await createAuditLog({
       admin: req.user._id,
-      action: "Unblocked user",
+      action: user.isAdmin ? "Unblocked admin" : "Unblocked user",
       targetType: "User",
       targetId: user._id,
       targetLabel: `${user.name} (${user.email})`,
+      snapshot: user.toObject(),
     });
 
     const updatedUser = await User.findById(user._id).select("-password");
 
     res.json({
-      message: "User unblocked successfully",
+      message: user.isAdmin ? "Admin unblocked successfully" : "User unblocked successfully",
       user: updatedUser,
     });
   } catch (error) {
@@ -236,6 +271,12 @@ const forceLogoutUser = async (req, res) => {
       return res.status(400).json({ message: "You cannot force logout yourself" });
     }
 
+    if (user.isAdmin && !isSuperAdmin(req.user)) {
+      return res.status(403).json({
+        message: "Only super admin can force logout admins",
+      });
+    }
+
     user.activeSessionToken = null;
     await user.save();
 
@@ -245,6 +286,7 @@ const forceLogoutUser = async (req, res) => {
       targetType: "User",
       targetId: user._id,
       targetLabel: `${user.name} (${user.email})`,
+      snapshot: user.toObject(),
     });
 
     res.json({ message: "User logged out successfully" });
@@ -258,6 +300,10 @@ const getAllSupportTickets = async (req, res) => {
     const { status = "", priority = "", category = "", search = "" } = req.query;
 
     const query = {};
+
+    if (!isSuperAdmin(req.user)) {
+      query.assignedAdmin = req.user._id;
+    }
 
     if (status) query.status = status;
     if (priority) query.priority = priority;
@@ -274,8 +320,8 @@ const getAllSupportTickets = async (req, res) => {
 
     const tickets = await SupportTicket.find(query)
       .populate("user", "name email publicId")
-      .populate("assignedAdmin", "name email publicId")
-      .sort({ updatedAt: -1 });
+      .populate("assignedAdmin", "name email publicId adminRole isSupportAvailable")
+      .sort({ lastMessageAt: -1, updatedAt: -1 });
 
     res.json(tickets);
   } catch (error) {
@@ -294,7 +340,14 @@ const assignSupportTicket = async (req, res) => {
       return res.status(404).json({ message: "Support ticket not found" });
     }
 
+    if (ticket.assignedAdmin && !isSuperAdmin(req.user)) {
+      return res.status(403).json({
+        message: "This ticket is already assigned. Only super admin can reassign it.",
+      });
+    }
+
     ticket.assignedAdmin = req.user._id;
+    ticket.assignedAt = new Date();
 
     if (ticket.status === "open") {
       ticket.status = "in_progress";
@@ -309,9 +362,83 @@ const assignSupportTicket = async (req, res) => {
       targetId: ticket._id,
       targetLabel: ticket.subject,
       details: `Assigned to ${req.user.name}`,
+      snapshot: ticket.toObject(),
     });
 
     res.json({ message: "Support ticket assigned successfully", ticket });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const reassignSupportTicket = async (req, res) => {
+  try {
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({
+        message: "Only super admin can reassign support tickets",
+      });
+    }
+
+    const { adminId } = req.body;
+
+    const ticket = await SupportTicket.findById(req.params.ticketId || req.params.id);
+
+    if (!ticket) {
+      return res.status(404).json({ message: "Support ticket not found" });
+    }
+
+    const admin = await User.findOne({
+      _id: adminId,
+      isAdmin: true,
+      adminRole: { $in: ["admin", "super_admin"] },
+      accountStatus: "active",
+    });
+
+    if (!admin) {
+      return res.status(400).json({ message: "Invalid admin selected" });
+    }
+
+    const previousAdmin = ticket.assignedAdmin;
+
+    ticket.assignedAdmin = admin._id;
+    ticket.assignedAt = new Date();
+
+    if (ticket.status === "open") {
+      ticket.status = "in_progress";
+    }
+
+    await ticket.save();
+
+    await createAuditLog({
+      admin: req.user._id,
+      action: "Reassigned support ticket",
+      targetType: "SupportTicket",
+      targetId: ticket._id,
+      targetLabel: ticket.subject,
+      details: `Ticket reassigned to ${admin.name}`,
+      snapshot: {
+        ticket: ticket.toObject(),
+        previousAdmin,
+        newAdmin: admin._id,
+      },
+    });
+
+    const io = req.app.get("io");
+    await createAndEmitNotification({
+      io,
+      recipient: admin._id.toString(),
+      actor: req.user._id,
+      type: "support_ticket_reassigned",
+      title: "Support ticket reassigned",
+      message: "A support ticket has been assigned to you.",
+      link: `/admin/support/${ticket._id}`,
+      meta: { ticketId: ticket._id },
+    });
+
+    res.json({
+      message: "Support ticket reassigned successfully",
+      ticket,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -325,16 +452,31 @@ const updateSupportTicketStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid support ticket status" });
     }
 
-    const ticket = await SupportTicket.findById(req.params.ticketId);
+    const ticket = await SupportTicket.findById(req.params.ticketId || req.params.id);
 
     if (!ticket) {
       return res.status(404).json({ message: "Support ticket not found" });
+    }
+
+    const isAssignedAdmin =
+      ticket.assignedAdmin &&
+      String(ticket.assignedAdmin) === String(req.user._id);
+
+    if (!isAssignedAdmin && !isSuperAdmin(req.user)) {
+      return res.status(403).json({
+        message: "Only assigned admin or super admin can update this ticket",
+      });
     }
 
     ticket.status = status;
 
     if (status === "in_progress" && !ticket.assignedAdmin) {
       ticket.assignedAdmin = req.user._id;
+      ticket.assignedAt = new Date();
+    }
+
+    if (status === "resolved" || status === "closed") {
+      ticket.resolvedAt = new Date();
     }
 
     await ticket.save();
@@ -346,6 +488,7 @@ const updateSupportTicketStatus = async (req, res) => {
       targetId: ticket._id,
       targetLabel: ticket.subject,
       details: `Status changed to ${status}`,
+      snapshot: ticket.toObject(),
     });
 
     res.json({
@@ -359,16 +502,28 @@ const updateSupportTicketStatus = async (req, res) => {
 
 const resolveSupportTicket = async (req, res) => {
   try {
-    const ticket = await SupportTicket.findById(req.params.ticketId);
+    const ticket = await SupportTicket.findById(req.params.ticketId || req.params.id);
 
     if (!ticket) {
       return res.status(404).json({ message: "Support ticket not found" });
     }
 
+    const isAssignedAdmin =
+      ticket.assignedAdmin &&
+      String(ticket.assignedAdmin) === String(req.user._id);
+
+    if (!isAssignedAdmin && !isSuperAdmin(req.user)) {
+      return res.status(403).json({
+        message: "Only assigned admin or super admin can resolve this ticket",
+      });
+    }
+
     ticket.status = "resolved";
+    ticket.resolvedAt = new Date();
 
     if (!ticket.assignedAdmin) {
       ticket.assignedAdmin = req.user._id;
+      ticket.assignedAt = new Date();
     }
 
     await ticket.save();
@@ -379,9 +534,60 @@ const resolveSupportTicket = async (req, res) => {
       targetType: "SupportTicket",
       targetId: ticket._id,
       targetLabel: ticket.subject,
+      snapshot: ticket.toObject(),
     });
 
     res.json({ message: "Support ticket resolved successfully", ticket });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const deleteResolvedSupportTicket = async (req, res) => {
+  try {
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({
+        message: "Only super admin can delete support tickets",
+      });
+    }
+
+    const ticket = await SupportTicket.findById(req.params.ticketId || req.params.id)
+      .populate("user", "name email publicId")
+      .populate("assignedAdmin", "name email publicId adminRole");
+
+    if (!ticket) {
+      return res.status(404).json({ message: "Support ticket not found" });
+    }
+
+    if (!["resolved", "closed"].includes(ticket.status)) {
+      return res.status(400).json({
+        message: "Only resolved or closed tickets can be deleted",
+      });
+    }
+
+    const messages = await SupportMessage.find({ ticket: ticket._id })
+      .populate("sender", "name email publicId")
+      .sort({ createdAt: 1 });
+
+    await createAuditLog({
+      admin: req.user._id,
+      action: "Deleted resolved support ticket",
+      targetType: "SupportTicket",
+      targetId: ticket._id,
+      targetLabel: ticket.subject,
+      details: "Resolved support ticket deleted by super admin",
+      snapshot: {
+        ticket: ticket.toObject(),
+        messages: messages.map((message) => message.toObject()),
+      },
+    });
+
+    await SupportMessage.deleteMany({ ticket: ticket._id });
+    await ticket.deleteOne();
+
+    res.json({
+      message: "Support ticket deleted. Full data saved in audit logs.",
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -402,11 +608,278 @@ const getAuditLogs = async (req, res) => {
     }
 
     const logs = await AuditLog.find(query)
-      .populate("admin", "name email publicId avatar")
+      .populate("admin", "name email publicId avatar adminRole")
       .sort({ createdAt: -1 })
       .limit(100);
 
     res.json(logs);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const deleteAuditLog = async (req, res) => {
+  try {
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({
+        message: "Only super admin can delete audit logs",
+      });
+    }
+
+    const log = await AuditLog.findById(req.params.id);
+
+    if (!log) {
+      return res.status(404).json({ message: "Audit log not found" });
+    }
+
+    await log.deleteOne();
+
+    res.json({ message: "Audit log deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getAdminWorkload = async (req, res) => {
+  try {
+    const admins = await User.find({
+      isAdmin: true,
+      adminRole: { $in: ["admin", "super_admin"] },
+    })
+      .select(
+        "name email publicId avatar adminRole accountStatus isSupportAvailable maxActiveTickets warnings"
+      )
+      .sort({ adminRole: -1, createdAt: -1 });
+
+    const workloads = await Promise.all(
+      admins.map(async (admin) => {
+        const activeTickets = await SupportTicket.countDocuments({
+          assignedAdmin: admin._id,
+          status: { $in: ["open", "in_progress"] },
+        });
+
+        return {
+          admin,
+          activeTickets,
+          maxActiveTickets: admin.maxActiveTickets || 5,
+          available:
+            admin.accountStatus === "active" &&
+            admin.isSupportAvailable &&
+            activeTickets < (admin.maxActiveTickets || 5),
+          warningsCount: admin.warnings?.length || 0,
+        };
+      })
+    );
+
+    res.json(workloads);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const updateMySupportAvailability = async (req, res) => {
+  try {
+    const { isSupportAvailable } = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    if (!user || !user.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    user.isSupportAvailable = Boolean(isSupportAvailable);
+    await user.save();
+
+    res.json({
+      message: "Support availability updated",
+      isSupportAvailable: user.isSupportAvailable,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const promoteToAdmin = async (req, res) => {
+  try {
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({ message: "Only super admin can promote admins" });
+    }
+
+    const user = await User.findById(req.params.userId || req.params.id);
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.isAdmin = true;
+    user.adminRole = "admin";
+    user.isSupportAvailable = true;
+    user.maxActiveTickets = user.maxActiveTickets || 5;
+
+    await user.save();
+
+    await createAuditLog({
+      admin: req.user._id,
+      action: "Promoted user to admin",
+      targetType: "User",
+      targetId: user._id,
+      targetLabel: `${user.name} (${user.email})`,
+      snapshot: user.toObject(),
+    });
+
+    res.json({
+      message: "User promoted to admin successfully",
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const demoteAdmin = async (req, res) => {
+  try {
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({ message: "Only super admin can demote admins" });
+    }
+
+    const user = await User.findById(req.params.userId || req.params.id);
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.adminRole === "super_admin") {
+      return res.status(403).json({ message: "Cannot demote super admin" });
+    }
+
+    user.isAdmin = false;
+    user.adminRole = "none";
+    user.isSupportAvailable = false;
+
+    await user.save();
+
+    await createAuditLog({
+      admin: req.user._id,
+      action: "Demoted admin",
+      targetType: "User",
+      targetId: user._id,
+      targetLabel: `${user.name} (${user.email})`,
+      snapshot: user.toObject(),
+    });
+
+    res.json({
+      message: "Admin demoted successfully",
+      user,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const warnAdmin = async (req, res) => {
+  try {
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({ message: "Only super admin can warn admins" });
+    }
+
+    const { reason } = req.body;
+
+    if (!reason?.trim()) {
+      return res.status(400).json({ message: "Warning reason is required" });
+    }
+
+    const admin = await User.findOne({
+      _id: req.params.userId || req.params.id,
+      isAdmin: true,
+      adminRole: "admin",
+    });
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    admin.warnings.push({
+      reason: reason.trim(),
+      warnedBy: req.user._id,
+      warnedAt: new Date(),
+    });
+
+    await admin.save();
+
+    await createAuditLog({
+      admin: req.user._id,
+      action: "Warned admin",
+      targetType: "User",
+      targetId: admin._id,
+      targetLabel: `${admin.name} (${admin.email})`,
+      details: reason.trim(),
+      snapshot: admin.toObject(),
+    });
+
+    const io = req.app.get("io");
+    await createAndEmitNotification({
+      io,
+      recipient: admin._id.toString(),
+      actor: req.user._id,
+      type: "admin_warning",
+      title: "Admin warning",
+      message: reason.trim(),
+      link: "/admin/warnings",
+      meta: { adminId: admin._id },
+    });
+
+    res.json({
+      message: "Warning sent successfully",
+      warnings: admin.warnings,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const updateAdminSettings = async (req, res) => {
+  try {
+    if (!isSuperAdmin(req.user)) {
+      return res.status(403).json({ message: "Only super admin can update admin settings" });
+    }
+
+    const { isSupportAvailable, maxActiveTickets } = req.body;
+
+    const admin = await User.findOne({
+      _id: req.params.userId || req.params.id,
+      isAdmin: true,
+      adminRole: { $in: ["admin", "super_admin"] },
+    });
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    if (isSupportAvailable !== undefined) {
+      admin.isSupportAvailable = Boolean(isSupportAvailable);
+    }
+
+    if (maxActiveTickets !== undefined) {
+      const numericLimit = Number(maxActiveTickets);
+
+      if (Number.isNaN(numericLimit) || numericLimit < 1) {
+        return res.status(400).json({ message: "maxActiveTickets must be at least 1" });
+      }
+
+      admin.maxActiveTickets = numericLimit;
+    }
+
+    await admin.save();
+
+    await createAuditLog({
+      admin: req.user._id,
+      action: "Updated admin settings",
+      targetType: "User",
+      targetId: admin._id,
+      targetLabel: `${admin.name} (${admin.email})`,
+      snapshot: admin.toObject(),
+    });
+
+    res.json({
+      message: "Admin settings updated successfully",
+      admin,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -474,6 +947,7 @@ const hideTeachListingByAdmin = async (req, res) => {
       targetId: listing._id,
       targetLabel: listing.skillName,
       details: reason.trim(),
+      snapshot: listing.toObject(),
     });
 
     res.json({
@@ -506,6 +980,7 @@ const restoreTeachListingByAdmin = async (req, res) => {
       targetType: "TeachListing",
       targetId: listing._id,
       targetLabel: listing.skillName,
+      snapshot: listing.toObject(),
     });
 
     res.json({
@@ -543,6 +1018,7 @@ const hideLearnListingByAdmin = async (req, res) => {
       targetId: listing._id,
       targetLabel: listing.skillName,
       details: reason.trim(),
+      snapshot: listing.toObject(),
     });
 
     res.json({
@@ -575,6 +1051,7 @@ const restoreLearnListingByAdmin = async (req, res) => {
       targetType: "LearnListing",
       targetId: listing._id,
       targetLabel: listing.skillName,
+      snapshot: listing.toObject(),
     });
 
     res.json({
@@ -612,6 +1089,7 @@ const hideSkillExchangeByAdmin = async (req, res) => {
       targetId: exchange._id,
       targetLabel: `${exchange.offerSkill} ↔ ${exchange.wantSkill}`,
       details: reason.trim(),
+      snapshot: exchange.toObject(),
     });
 
     res.json({
@@ -644,6 +1122,7 @@ const restoreSkillExchangeByAdmin = async (req, res) => {
       targetType: "SkillExchange",
       targetId: exchange._id,
       targetLabel: `${exchange.offerSkill} ↔ ${exchange.wantSkill}`,
+      snapshot: exchange.toObject(),
     });
 
     res.json({
@@ -669,6 +1148,7 @@ const deleteTeachListingByAdmin = async (req, res) => {
       targetType: "TeachListing",
       targetId: listing._id,
       targetLabel: listing.skillName,
+      snapshot: listing.toObject(),
     });
 
     await listing.deleteOne();
@@ -693,6 +1173,7 @@ const deleteLearnListingByAdmin = async (req, res) => {
       targetType: "LearnListing",
       targetId: listing._id,
       targetLabel: listing.skillName,
+      snapshot: listing.toObject(),
     });
 
     await listing.deleteOne();
@@ -717,6 +1198,7 @@ const deleteSkillExchangeByAdmin = async (req, res) => {
       targetType: "SkillExchange",
       targetId: exchange._id,
       targetLabel: `${exchange.offerSkill} ↔ ${exchange.wantSkill}`,
+      snapshot: exchange.toObject(),
     });
 
     await exchange.deleteOne();
@@ -737,10 +1219,20 @@ module.exports = {
 
   getAllSupportTickets,
   assignSupportTicket,
+  reassignSupportTicket,
   updateSupportTicketStatus,
   resolveSupportTicket,
+  deleteResolvedSupportTicket,
 
   getAuditLogs,
+  deleteAuditLog,
+
+  getAdminWorkload,
+  updateMySupportAvailability,
+  promoteToAdmin,
+  demoteAdmin,
+  warnAdmin,
+  updateAdminSettings,
 
   getAllTeachListingsByAdmin,
   getAllLearnListingsByAdmin,

@@ -35,6 +35,13 @@ export const assignSupportTicket = async (ticketId) => {
   return res.data;
 };
 
+export const reassignSupportTicket = async (ticketId, adminId) => {
+  const res = await api.patch(`/admin/support/tickets/${ticketId}/reassign`, {
+    adminId,
+  });
+  return res.data;
+};
+
 export const updateSupportTicketStatus = async (ticketId, status) => {
   const res = await api.patch(`/admin/support/tickets/${ticketId}/status`, {
     status,
@@ -47,8 +54,50 @@ export const resolveSupportTicket = async (ticketId) => {
   return res.data;
 };
 
+export const deleteResolvedSupportTicket = async (ticketId) => {
+  const res = await api.delete(`/admin/support/tickets/${ticketId}`);
+  return res.data;
+};
+
 export const getAuditLogs = async (params = {}) => {
   const res = await api.get("/admin/audit-logs", { params });
+  return res.data;
+};
+
+export const deleteAuditLog = async (id) => {
+  const res = await api.delete(`/admin/audit-logs/${id}`);
+  return res.data;
+};
+
+export const getAdminWorkload = async () => {
+  const res = await api.get("/admin/workload");
+  return res.data;
+};
+
+export const updateMySupportAvailability = async (isSupportAvailable) => {
+  const res = await api.patch("/admin/availability", {
+    isSupportAvailable,
+  });
+  return res.data;
+};
+
+export const promoteToAdmin = async (userId) => {
+  const res = await api.patch(`/admin/admins/${userId}/promote`);
+  return res.data;
+};
+
+export const demoteAdmin = async (userId) => {
+  const res = await api.patch(`/admin/admins/${userId}/demote`);
+  return res.data;
+};
+
+export const warnAdmin = async (userId, reason) => {
+  const res = await api.patch(`/admin/admins/${userId}/warn`, { reason });
+  return res.data;
+};
+
+export const updateAdminSettings = async (userId, payload) => {
+  const res = await api.patch(`/admin/admins/${userId}/settings`, payload);
   return res.data;
 };
 

@@ -31,6 +31,26 @@ const availabilityDaySchema = new mongoose.Schema(
   { _id: false }
 );
 
+const warningSchema = new mongoose.Schema(
+  {
+    reason: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    warnedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    warnedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     publicId: {
@@ -71,10 +91,34 @@ const userSchema = new mongoose.Schema(
       default: "learner",
     },
 
-    // separate staff/admin access
+    // staff/admin access
     isAdmin: {
       type: Boolean,
       default: false,
+    },
+
+    // admin hierarchy
+    adminRole: {
+      type: String,
+      enum: ["none", "admin", "super_admin"],
+      default: "none",
+    },
+
+    // admin support workload
+    isSupportAvailable: {
+      type: Boolean,
+      default: false,
+    },
+
+    maxActiveTickets: {
+      type: Number,
+      default: 5,
+      min: 1,
+    },
+
+    warnings: {
+      type: [warningSchema],
+      default: [],
     },
 
     accountStatus: {
@@ -82,50 +126,58 @@ const userSchema = new mongoose.Schema(
       enum: ["active", "blocked"],
       default: "active",
     },
-    blockedReason: {
-  type: String,
-  default: "",
-  trim: true,
-},
 
-blockedAt: {
-  type: Date,
-  default: null,
-},
+    blockedReason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    blockedAt: {
+      type: Date,
+      default: null,
+    },
 
     activeSessionToken: {
       type: String,
       default: null,
     },
+
     ratingAvg: {
       type: Number,
       default: 0,
     },
+
     ratingCount: {
       type: Number,
       default: 0,
     },
+
     badge: {
       type: String,
       default: "Beginner",
     },
+
     avatar: {
       type: String,
       default: "",
       trim: true,
     },
+
     bio: {
       type: String,
       default: "",
       trim: true,
       maxlength: 500,
     },
+
     teachingStyle: {
       type: String,
       default: "",
       trim: true,
       maxlength: 300,
     },
+
     availability: {
       type: [availabilityDaySchema],
       default: [],

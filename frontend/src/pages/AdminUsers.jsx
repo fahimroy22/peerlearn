@@ -1,14 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   blockUser,
+  demoteAdmin,
   forceLogoutUser,
   getAllUsers,
+  promoteToAdmin,
   unblockUser,
+  warnAdmin,
 } from "../api/adminApi";
+import useAuth from "../context/useAuth";
 import useToast from "../context/useToast";
 
 function AdminUsers() {
+  const { user } = useAuth();
   const { showToast } = useToast();
+
+  const isSuperAdmin = user?.isAdmin && user?.adminRole === "super_admin";
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +53,7 @@ function AdminUsers() {
     return {
       total: users.length,
       admins: users.filter((item) => item.isAdmin).length,
+      superAdmins: users.filter((item) => item.adminRole === "super_admin").length,
       tutors: users.filter((item) => !item.isAdmin && item.role === "tutor").length,
       learners: users.filter((item) => !item.isAdmin && item.role === "learner").length,
       blocked: users.filter((item) => item.accountStatus === "blocked").length,
@@ -63,11 +71,10 @@ function AdminUsers() {
     try {
       setWorkingId(targetUser._id);
       await blockUser(targetUser._id, reason);
-      showToast("User blocked and logged out", "success");
+      showToast("Account blocked and logged out", "success");
       fetchUsers();
     } catch (error) {
-      console.error(error);
-      showToast(error.response?.data?.message || "Failed to block user", "error");
+      showToast(error.response?.data?.message || "Failed to block account", "error");
     } finally {
       setWorkingId("");
     }
@@ -77,11 +84,10 @@ function AdminUsers() {
     try {
       setWorkingId(targetUser._id);
       await unblockUser(targetUser._id);
-      showToast("User unblocked", "success");
+      showToast("Account unblocked", "success");
       fetchUsers();
     } catch (error) {
-      console.error(error);
-      showToast(error.response?.data?.message || "Failed to unblock user", "error");
+      showToast(error.response?.data?.message || "Failed to unblock account", "error");
     } finally {
       setWorkingId("");
     }
@@ -94,11 +100,75 @@ function AdminUsers() {
       showToast("User logged out", "success");
       fetchUsers();
     } catch (error) {
-      console.error(error);
       showToast(error.response?.data?.message || "Failed to logout user", "error");
     } finally {
       setWorkingId("");
     }
+  };
+
+  const handlePromote = async (targetUser) => {
+    const confirmed = window.confirm(`Promote ${targetUser.name} to admin?`);
+    if (!confirmed) return;
+
+    try {
+      setWorkingId(targetUser._id);
+      await promoteToAdmin(targetUser._id);
+      showToast("User promoted to admin", "success");
+      fetchUsers();
+    } catch (error) {
+      showToast(error.response?.data?.message || "Failed to promote user", "error");
+    } finally {
+      setWorkingId("");
+    }
+  };
+
+  const handleDemote = async (targetUser) => {
+    const confirmed = window.confirm(`Remove admin access from ${targetUser.name}?`);
+    if (!confirmed) return;
+
+    try {
+      setWorkingId(targetUser._id);
+      await demoteAdmin(targetUser._id);
+      showToast("Admin demoted", "success");
+      fetchUsers();
+    } catch (error) {
+      showToast(error.response?.data?.message || "Failed to demote admin", "error");
+    } finally {
+      setWorkingId("");
+    }
+  };
+
+  const handleWarn = async (targetUser) => {
+    const reason = window.prompt(
+      `Warning reason for ${targetUser.name}`,
+      "Please follow admin guidelines."
+    );
+
+    if (!reason?.trim()) return;
+
+    try {
+      setWorkingId(targetUser._id);
+      await warnAdmin(targetUser._id, reason.trim());
+      showToast("Warning sent", "success");
+      fetchUsers();
+    } catch (error) {
+      showToast(error.response?.data?.message || "Failed to warn admin", "error");
+    } finally {
+      setWorkingId("");
+    }
+  };
+
+  const getRoleLabel = (item) => {
+    if (item.adminRole === "super_admin") return "Super Admin";
+    if (item.isAdmin) return "Admin";
+    return item.role;
+  };
+
+  const getRoleClass = (item) => {
+    if (item.adminRole === "super_admin") return "role-admin";
+    if (item.isAdmin) return "role-admin";
+    if (item.role === "tutor") return "role-tutor";
+    return "role-learner";
   };
 
   return (
@@ -108,13 +178,13 @@ function AdminUsers() {
           <div className="au-eyebrow">Admin</div>
           <h1 className="au-title">User Management</h1>
           <p className="au-subtitle">
-            Monitor users, moderate accounts, block unsafe users, and force logout active sessions.
+            Manage users, moderate accounts, and control admin access from one simple page.
           </p>
         </section>
 
         <section className="au-stats">
           <div className="au-stat">
-            <div className="au-stat-label">Total Users</div>
+            <div className="au-stat-label">Total</div>
             <div className="au-stat-value">{stats.total}</div>
           </div>
 
@@ -149,6 +219,7 @@ function AdminUsers() {
             onChange={(e) => setRole(e.target.value)}
           >
             <option value="">All roles</option>
+            <option value="super_admin">Super Admins</option>
             <option value="admin">Admins</option>
             <option value="tutor">Tutors</option>
             <option value="learner">Learners</option>
@@ -173,11 +244,12 @@ function AdminUsers() {
           <section className="au-list">
             {users.map((item) => {
               const isBlocked = item.accountStatus === "blocked";
-              const roleClass = item.isAdmin
-                ? "role-admin"
-                : item.role === "tutor"
-                ? "role-tutor"
-                : "role-learner";
+              const isSelf = String(item._id) === String(user?._id);
+              const isProtectedSuperAdmin = item.adminRole === "super_admin";
+              const canModerate =
+                !isSelf &&
+                !isProtectedSuperAdmin &&
+                (!item.isAdmin || isSuperAdmin);
 
               return (
                 <article key={item._id} className="au-card">
@@ -190,12 +262,18 @@ function AdminUsers() {
                       <div className="au-top">
                         <div className="au-name">{item.name || "Unnamed User"}</div>
 
-                        <span className={`au-badge ${roleClass}`}>
-                          {item.isAdmin ? "Admin" : item.role}
+                        <span className={`au-badge ${getRoleClass(item)}`}>
+                          {getRoleLabel(item)}
                         </span>
 
                         {isBlocked && (
                           <span className="au-badge status-blocked">Blocked</span>
+                        )}
+
+                        {item.warnings?.length > 0 && (
+                          <span className="au-badge">
+                            {item.warnings.length} warning{item.warnings.length > 1 ? "s" : ""}
+                          </span>
                         )}
                       </div>
 
@@ -215,6 +293,12 @@ function AdminUsers() {
                           Session: {item.activeSessionToken ? "Active" : "None"}
                         </span>
 
+                        {item.isAdmin && (
+                          <span className="au-pill">
+                            Support: {item.isSupportAvailable ? "Available" : "Unavailable"}
+                          </span>
+                        )}
+
                         {item.blockedReason && (
                           <span className="au-pill">
                             Reason: {item.blockedReason}
@@ -225,7 +309,7 @@ function AdminUsers() {
                   </div>
 
                   <div className="au-actions">
-                    {!item.isAdmin ? (
+                    {canModerate && (
                       <>
                         {isBlocked ? (
                           <button
@@ -256,8 +340,45 @@ function AdminUsers() {
                           Force Logout
                         </button>
                       </>
-                    ) : (
-                      <span className="au-pill">Protected Admin</span>
+                    )}
+
+                    {isSuperAdmin && !item.isAdmin && (
+                      <button
+                        type="button"
+                        className="au-btn unblock"
+                        onClick={() => handlePromote(item)}
+                        disabled={workingId === item._id}
+                      >
+                        Make Admin
+                      </button>
+                    )}
+
+                    {isSuperAdmin && item.isAdmin && item.adminRole === "admin" && (
+                      <>
+                        <button
+                          type="button"
+                          className="au-btn logout"
+                          onClick={() => handleWarn(item)}
+                          disabled={workingId === item._id}
+                        >
+                          Warn
+                        </button>
+
+                        <button
+                          type="button"
+                          className="au-btn block"
+                          onClick={() => handleDemote(item)}
+                          disabled={workingId === item._id}
+                        >
+                          Remove Admin
+                        </button>
+                      </>
+                    )}
+
+                    {!canModerate && (
+                      <span className="au-pill">
+                        {isSelf ? "Current account" : "Protected"}
+                      </span>
                     )}
                   </div>
                 </article>

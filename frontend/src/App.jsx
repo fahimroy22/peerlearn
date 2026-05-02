@@ -21,15 +21,15 @@ import ExchangeChat from "./pages/ExchangeChat";
 import Notifications from "./pages/Notifications";
 import SessionVerification from "./pages/SessionVerification";
 
-// new pages
 import HelpCenter from "./pages/HelpCenter";
 import MySupportTickets from "./pages/MySupportTickets";
 import SupportChat from "./pages/SupportChat";
+import CreateSupportTicket from "./pages/CreateSupportTicket";
+
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminSupportTickets from "./pages/AdminSupportTickets";
 import AdminSupportChat from "./pages/AdminSupportChat";
-import CreateSupportTicket from "./pages/CreateSupportTicket";
 import AdminListings from "./pages/AdminListings";
 import AdminAuditLogs from "./pages/AdminAuditLogs";
 import AdminProfile from "./pages/AdminProfile";
@@ -174,6 +174,15 @@ function App() {
         />
 
         <Route
+          path="/support/new"
+          element={
+            <ProtectedRoute adminBlocked>
+              <CreateSupportTicket />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/support/:ticketId"
           element={
             <ProtectedRoute>
@@ -181,8 +190,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        <Route path="/support/new" element={<CreateSupportTicket />} />
 
         <Route
           path="/admin"
@@ -228,22 +235,24 @@ function App() {
             </AdminRoute>
           }
         />
+
         <Route
-  path="/admin/audit"
-  element={
-    <AdminRoute>
-      <AdminAuditLogs />
-    </AdminRoute>
-  }
-/>
-<Route
-  path="/admin/profile"
-  element={
-    <AdminRoute>
-      <AdminProfile />
-    </AdminRoute>
-  }
-/>
+          path="/admin/audit"
+          element={
+            <AdminRoute>
+              <AdminAuditLogs />
+            </AdminRoute>
+          }
+        />
+
+        <Route
+          path="/admin/profile"
+          element={
+            <AdminRoute>
+              <AdminProfile />
+            </AdminRoute>
+          }
+        />
       </Routes>
     </>
   );

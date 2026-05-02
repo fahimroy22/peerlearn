@@ -301,8 +301,8 @@ function Requests() {
 
       await api.post("/sessions", {
         requestId,
-        startTime: start.toISOString(),
-        endTime: end.toISOString(),
+        startTime: sessionForm.startTime,
+        endTime: sessionForm.endTime,
         deliveryMode: sessionForm.deliveryMode,
         roomUrl:
           sessionForm.deliveryMode === "online" ? sessionForm.roomUrl.trim() : "",

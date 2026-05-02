@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import api, { API_BASE_URL } from "../api/axios";
-import { getAdminDashboard } from "../api/adminApi";
+import {
+  getAdminDashboard,
+  getAdminWorkload,
+  updateMySupportAvailability,
+} from "../api/adminApi";
 import useAuth from "../context/useAuth";
 import useToast from "../context/useToast";
 
@@ -11,13 +15,16 @@ function AdminDashboard() {
 
   const [stats, setStats] = useState(null);
   const [charts, setCharts] = useState(null);
+  const [workload, setWorkload] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [savingProfile, setSavingProfile] = useState(false);
   const [showProfileCard, setShowProfileCard] = useState(true);
   const [showPasswordPanel, setShowPasswordPanel] = useState(false);
   const [showSecurityPanel, setShowSecurityPanel] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [savingAvailability, setSavingAvailability] = useState(false);
 
   const [adminForm, setAdminForm] = useState({
     name: "",
@@ -34,9 +41,19 @@ function AdminDashboard() {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const data = await getAdminDashboard();
-      setStats(data?.stats || null);
-      setCharts(data?.charts || null);
+
+      const dashboardData = await getAdminDashboard();
+
+      setStats(dashboardData?.stats || null);
+      setCharts(dashboardData?.charts || null);
+
+      try {
+        const workloadData = await getAdminWorkload();
+        setWorkload(workloadData || []);
+      } catch (workloadError) {
+        console.error("Failed to load admin workload:", workloadError);
+        setWorkload([]);
+      }
     } catch (error) {
       console.error(error);
       showToast("Failed to load admin dashboard", "error");
@@ -194,6 +211,32 @@ function AdminDashboard() {
     }
   };
 
+  const handleToggleAvailability = async () => {
+    try {
+      setSavingAvailability(true);
+
+      const currentAdmin = workload.find(
+        (item) => String(item.admin?._id) === String(user?._id)
+      );
+
+      const nextValue = !currentAdmin?.admin?.isSupportAvailable;
+
+      await updateMySupportAvailability(nextValue);
+
+      showToast(
+        nextValue ? "You are now available for tickets" : "You are now unavailable for tickets",
+        "success"
+      );
+
+      fetchStats();
+    } catch (error) {
+      console.error(error);
+      showToast(error.response?.data?.message || "Failed to update availability", "error");
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
+
   const renderMiniChart = (items = [], label) => {
     const max = Math.max(...items.map((item) => item.count), 1);
 
@@ -230,7 +273,7 @@ function AdminDashboard() {
             <div className="section-eyebrow">Admin Panel</div>
             <h1 className="dashboard-title">Platform Administration</h1>
             <p className="dashboard-subtitle">
-              Manage users, review support activity, and keep the platform running smoothly.
+              Manage users, support tickets, admins, and platform activity from one simple place.
             </p>
           </div>
 
@@ -292,7 +335,11 @@ function AdminDashboard() {
                     <div className="admin-profile-meta">
                       <h3>{adminForm.name || "Platform Admin"}</h3>
                       <p>ID: {adminForm.publicId || "Not set"}</p>
-                      <span className="admin-admin-badge">Platform Administrator</span>
+                      <span className="admin-admin-badge">
+                        {user?.adminRole === "super_admin"
+                          ? "Super Administrator"
+                          : "Platform Administrator"}
+                      </span>
                     </div>
                   </div>
 
@@ -441,7 +488,9 @@ function AdminDashboard() {
 
                       <div>
                         <span>Account type</span>
-                        <strong>Administrator</strong>
+                        <strong>
+                          {user?.adminRole === "super_admin" ? "Super Admin" : "Admin"}
+                        </strong>
                       </div>
 
                       <div>
@@ -495,6 +544,91 @@ function AdminDashboard() {
               </div>
             </div>
 
+            <section className="au-stats" style={{ marginTop: "20px" }}>
+              <div className="au-stat">
+                <div className="au-stat-label">Admins</div>
+                <div className="au-stat-value">{stats?.admins || 0}</div>
+              </div>
+
+              <div className="au-stat">
+                <div className="au-stat-label">Blocked Admins</div>
+                <div className="au-stat-value">{stats?.blockedAdmins || 0}</div>
+              </div>
+
+              <div className="au-stat">
+                <div className="au-stat-label">Active Tickets</div>
+                <div className="au-stat-value">{stats?.activeTickets || 0}</div>
+              </div>
+
+              <div className="au-stat">
+                <div className="au-stat-label">Resolved Tickets</div>
+                <div className="au-stat-value">{stats?.resolvedTickets || 0}</div>
+              </div>
+            </section>
+
+            <section className="au-page" style={{ padding: 0, marginTop: "20px" }}>
+              <div className="au-header">
+                <div>
+                  <div className="au-eyebrow">Workload</div>
+                  <h2 className="au-title" style={{ fontSize: "24px" }}>
+                    Admin Availability
+                  </h2>
+                  <p className="au-subtitle">See who can take more support tickets.</p>
+                </div>
+
+                <button
+                  type="button"
+                  className="admin-profile-secondary"
+                  disabled={savingAvailability}
+                  onClick={handleToggleAvailability}
+                >
+                  {savingAvailability ? "Updating..." : "Toggle My Availability"}
+                </button>
+              </div>
+
+              {workload.length === 0 ? (
+                <div className="au-empty">Admin workload unavailable.</div>
+              ) : (
+                <section className="au-list">
+                  {workload.map((item) => (
+                    <article key={item.admin._id} className="au-card">
+                      <div className="au-user">
+                        <div className="au-avatar">
+                          {item.admin.name?.charAt(0)?.toUpperCase() || "A"}
+                        </div>
+
+                        <div className="au-main">
+                          <div className="au-top">
+                            <div className="au-name">{item.admin.name}</div>
+
+                            <span className="au-badge role-admin">
+                              {item.admin.adminRole === "super_admin" ? "Super Admin" : "Admin"}
+                            </span>
+
+                            <span
+                              className={`au-badge ${
+                                item.available ? "role-tutor" : "status-blocked"
+                              }`}
+                            >
+                              {item.available ? "Available" : "Unavailable"}
+                            </span>
+                          </div>
+
+                          <div className="au-meta">
+                            <span>{item.admin.email}</span>
+                            <span>
+                              Tickets: {item.activeTickets}/{item.maxActiveTickets}
+                            </span>
+                            <span>Warnings: {item.warningsCount}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </section>
+              )}
+            </section>
+
             <section className="admin-chart-grid">
               {renderMiniChart(charts?.users || [], "New Users")}
               {renderMiniChart(charts?.tickets || [], "Support Tickets")}
@@ -509,12 +643,15 @@ function AdminDashboard() {
           <Link to="/admin/users">
             <button type="button">Manage Users</button>
           </Link>
+
           <Link to="/admin/support">
             <button type="button">Support Tickets</button>
           </Link>
+
           <Link to="/admin/listings">
             <button type="button">Listings</button>
           </Link>
+
           <Link to="/admin/audit">
             <button type="button">Audit Logs</button>
           </Link>

@@ -1,5 +1,6 @@
 const SupportTicket = require("../models/SupportTicket");
 const SupportMessage = require("../models/SupportMessage");
+const AuditLog = require("../models/AuditLog");
 const User = require("../models/User");
 const { createAndEmitNotification } = require("./notificationController");
 
@@ -20,6 +21,38 @@ const detectFileType = (file) => {
 
   if (documentMimeTypes.includes(file.mimetype)) return "document";
   return "file";
+};
+
+const getBestAvailableAdmin = async () => {
+  const admins = await User.find({
+    isAdmin: true,
+    adminRole: { $in: ["admin", "super_admin"] },
+    accountStatus: "active",
+    isSupportAvailable: true,
+  });
+
+  if (!admins.length) return null;
+
+  const workloads = await Promise.all(
+    admins.map(async (admin) => {
+      const activeCount = await SupportTicket.countDocuments({
+        assignedAdmin: admin._id,
+        status: { $in: ["open", "in_progress"] },
+      });
+
+      return {
+        admin,
+        activeCount,
+        maxActiveTickets: admin.maxActiveTickets || 5,
+      };
+    })
+  );
+
+  const availableAdmins = workloads
+    .filter((item) => item.activeCount < item.maxActiveTickets)
+    .sort((a, b) => a.activeCount - b.activeCount);
+
+  return availableAdmins[0]?.admin || null;
 };
 
 const faqReplies = [
@@ -145,15 +178,14 @@ const createSupportTicket = async (req, res) => {
     }
 
     const { subject, category, text, priority } = req.body;
-const file = req.file;
+    const file = req.file;
+    const ticketUser = req.user;
 
-const ticketUser = req.user;
-
-if (!ticketUser) {
-  return res.status(401).json({
-    message: "Please log in before opening a support ticket",
-  });
-}
+    if (!ticketUser) {
+      return res.status(401).json({
+        message: "Please log in before opening a support ticket",
+      });
+    }
 
     if (!subject?.trim()) {
       return res.status(400).json({ message: "Subject is required" });
@@ -165,12 +197,16 @@ if (!ticketUser) {
       });
     }
 
+    const assignedAdmin = await getBestAvailableAdmin();
+
     const ticket = await SupportTicket.create({
       user: ticketUser._id,
       subject: subject.trim(),
       category: category || "other",
       priority: priority || "medium",
-      status: "open",
+      status: assignedAdmin ? "in_progress" : "open",
+      assignedAdmin: assignedAdmin?._id || null,
+      assignedAt: assignedAdmin ? new Date() : null,
       lastMessageAt: new Date(),
     });
 
@@ -203,29 +239,42 @@ if (!ticketUser) {
       readBy: [ticketUser._id],
     });
 
-    const admins = await User.find({
-      isAdmin: true,
-      accountStatus: "active",
-    }).select("_id");
-
     const io = req.app.get("io");
 
-    for (const admin of admins) {
+    if (assignedAdmin) {
       await createAndEmitNotification({
         io,
-        recipient: admin._id.toString(),
+        recipient: assignedAdmin._id.toString(),
         actor: ticketUser._id,
-        type: "support_ticket_created",
-        title: "New support ticket",
+        type: "support_ticket_assigned",
+        title: "New support ticket assigned",
         message: `${ticketUser.name} opened a support ticket.`,
         link: `/admin/support/${ticket._id}`,
         meta: { ticketId: ticket._id },
       });
+    } else {
+      const admins = await User.find({
+        isAdmin: true,
+        accountStatus: "active",
+      }).select("_id");
+
+      for (const admin of admins) {
+        await createAndEmitNotification({
+          io,
+          recipient: admin._id.toString(),
+          actor: ticketUser._id,
+          type: "support_ticket_created",
+          title: "New support ticket",
+          message: `${ticketUser.name} opened a support ticket.`,
+          link: `/admin/support/${ticket._id}`,
+          meta: { ticketId: ticket._id },
+        });
+      }
     }
 
     const populatedTicket = await SupportTicket.findById(ticket._id)
       .populate("user", "name email publicId")
-      .populate("assignedAdmin", "name email publicId");
+      .populate("assignedAdmin", "name email publicId adminRole");
 
     res.status(201).json({
       message: "Support ticket created successfully",
@@ -241,7 +290,7 @@ if (!ticketUser) {
 const getMySupportTickets = async (req, res) => {
   try {
     const tickets = await SupportTicket.find({ user: req.user._id })
-      .populate("assignedAdmin", "name email publicId")
+      .populate("assignedAdmin", "name email publicId adminRole")
       .sort({ updatedAt: -1 });
 
     res.json(tickets);
@@ -336,10 +385,15 @@ const sendSupportMessage = async (req, res) => {
     });
 
     ticket.lastMessageAt = new Date();
+
     if (ticket.status === "open" && isAdmin) {
       ticket.status = "in_progress";
-      if (!ticket.assignedAdmin) ticket.assignedAdmin = req.user._id;
+      if (!ticket.assignedAdmin) {
+        ticket.assignedAdmin = req.user._id;
+        ticket.assignedAt = new Date();
+      }
     }
+
     await ticket.save();
 
     const populatedMessage = await SupportMessage.findById(
@@ -364,15 +418,10 @@ const sendSupportMessage = async (req, res) => {
         meta: { ticketId },
       });
     } else {
-      const admins = await User.find({
-        isAdmin: true,
-        accountStatus: "active",
-      }).select("_id");
-
-      for (const admin of admins) {
+      if (ticket.assignedAdmin) {
         await createAndEmitNotification({
           io,
-          recipient: admin._id.toString(),
+          recipient: ticket.assignedAdmin.toString(),
           actor: req.user._id,
           type: "support_user_reply",
           title: "Support ticket updated",
@@ -380,6 +429,24 @@ const sendSupportMessage = async (req, res) => {
           link: `/admin/support/${ticketId}`,
           meta: { ticketId },
         });
+      } else {
+        const admins = await User.find({
+          isAdmin: true,
+          accountStatus: "active",
+        }).select("_id");
+
+        for (const admin of admins) {
+          await createAndEmitNotification({
+            io,
+            recipient: admin._id.toString(),
+            actor: req.user._id,
+            type: "support_user_reply",
+            title: "Support ticket updated",
+            message: `${req.user.name} replied to a support ticket.`,
+            link: `/admin/support/${ticketId}`,
+            meta: { ticketId },
+          });
+        }
       }
     }
 
@@ -415,10 +482,202 @@ const getMySupportUnreadCount = async (req, res) => {
   }
 };
 
+const getAdminSupportTickets = async (req, res) => {
+  try {
+    const query =
+      req.user.adminRole === "super_admin"
+        ? {}
+        : { assignedAdmin: req.user._id };
+
+    const tickets = await SupportTicket.find(query)
+      .populate("user", "name email publicId avatar accountStatus")
+      .populate("assignedAdmin", "name email publicId adminRole isSupportAvailable")
+      .sort({ lastMessageAt: -1, updatedAt: -1 });
+
+    res.json(tickets);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const updateSupportTicketStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    if (!["open", "in_progress", "resolved", "closed"].includes(status)) {
+      return res.status(400).json({ message: "Invalid ticket status" });
+    }
+
+    const ticket = await SupportTicket.findById(req.params.id);
+
+    if (!ticket) {
+      return res.status(404).json({ message: "Support ticket not found" });
+    }
+
+    const isAssignedAdmin =
+      ticket.assignedAdmin &&
+      ticket.assignedAdmin.toString() === req.user._id.toString();
+
+    const isSuperAdmin = req.user.adminRole === "super_admin";
+
+    if (!isAssignedAdmin && !isSuperAdmin) {
+      return res.status(403).json({
+        message: "Only assigned admin or super admin can update this ticket",
+      });
+    }
+
+    ticket.status = status;
+
+    if (status === "resolved" || status === "closed") {
+      ticket.resolvedAt = new Date();
+    }
+
+    await ticket.save();
+
+    await AuditLog.create({
+      admin: req.user._id,
+      action: "support_ticket_status_updated",
+      targetType: "SupportTicket",
+      targetId: ticket._id,
+      targetLabel: ticket.subject,
+      details: `Ticket status changed to ${status}`,
+      snapshot: ticket.toObject(),
+    });
+
+    res.json({
+      message: "Ticket status updated successfully",
+      ticket,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const reassignTicket = async (req, res) => {
+  try {
+    if (req.user.adminRole !== "super_admin") {
+      return res.status(403).json({
+        message: "Only super admin can reassign tickets",
+      });
+    }
+
+    const { adminId } = req.body;
+
+    const ticket = await SupportTicket.findById(req.params.id);
+
+    if (!ticket) {
+      return res.status(404).json({ message: "Support ticket not found" });
+    }
+
+    const admin = await User.findOne({
+      _id: adminId,
+      isAdmin: true,
+      adminRole: { $in: ["admin", "super_admin"] },
+      accountStatus: "active",
+    });
+
+    if (!admin) {
+      return res.status(400).json({ message: "Invalid admin selected" });
+    }
+
+    const previousAdmin = ticket.assignedAdmin;
+
+    ticket.assignedAdmin = admin._id;
+    ticket.assignedAt = new Date();
+
+    if (ticket.status === "open") {
+      ticket.status = "in_progress";
+    }
+
+    await ticket.save();
+
+    await AuditLog.create({
+      admin: req.user._id,
+      action: "support_ticket_reassigned",
+      targetType: "SupportTicket",
+      targetId: ticket._id,
+      targetLabel: ticket.subject,
+      details: `Ticket reassigned to ${admin.name}`,
+      snapshot: {
+        ticket: ticket.toObject(),
+        previousAdmin,
+        newAdmin: admin._id,
+      },
+    });
+
+    const io = req.app.get("io");
+
+    await createAndEmitNotification({
+      io,
+      recipient: admin._id.toString(),
+      actor: req.user._id,
+      type: "support_ticket_reassigned",
+      title: "Support ticket reassigned",
+      message: "A support ticket has been assigned to you.",
+      link: `/admin/support/${ticket._id}`,
+      meta: { ticketId: ticket._id },
+    });
+
+    res.json({
+      message: "Ticket reassigned successfully",
+      ticket,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const deleteResolvedTicket = async (req, res) => {
+  try {
+    if (req.user.adminRole !== "super_admin") {
+      return res.status(403).json({
+        message: "Only super admin can delete support tickets",
+      });
+    }
+
+    const ticket = await SupportTicket.findById(req.params.id)
+      .populate("user", "name email publicId")
+      .populate("assignedAdmin", "name email publicId adminRole");
+
+    if (!ticket) {
+      return res.status(404).json({ message: "Support ticket not found" });
+    }
+
+    if (!["resolved", "closed"].includes(ticket.status)) {
+      return res.status(400).json({
+        message: "Only resolved or closed tickets can be deleted",
+      });
+    }
+
+    await AuditLog.create({
+      admin: req.user._id,
+      action: "support_ticket_deleted",
+      targetType: "SupportTicket",
+      targetId: ticket._id,
+      targetLabel: ticket.subject,
+      details: "Resolved support ticket deleted by super admin",
+      snapshot: ticket.toObject(),
+    });
+
+    await SupportMessage.deleteMany({ ticket: ticket._id });
+    await ticket.deleteOne();
+
+    res.json({
+      message: "Support ticket deleted. Full data saved in audit logs.",
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createSupportTicket,
   getMySupportTickets,
   getSupportMessages,
   sendSupportMessage,
   getMySupportUnreadCount,
+  getAdminSupportTickets,
+  updateSupportTicketStatus,
+  reassignTicket,
+  deleteResolvedTicket,
 };

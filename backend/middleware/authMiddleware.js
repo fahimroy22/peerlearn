@@ -36,9 +36,9 @@ const authMiddleware = async (req, res, next) => {
     }
 
     if (!user.activeSessionToken || user.activeSessionToken !== token) {
-     return res.status(401).json({
+      return res.status(401).json({
         message:
-         "Session expired or account logged in elsewhere. Please log in again.",
+          "Session expired or account logged in elsewhere. Please log in again.",
       });
     }
 
@@ -61,6 +61,21 @@ const adminOnly = (req, res, next) => {
   next();
 };
 
+const superAdminOnly = (req, res, next) => {
+  if (
+    !req.user ||
+    !req.user.isAdmin ||
+    req.user.adminRole !== "super_admin"
+  ) {
+    return res.status(403).json({
+      message: "Super admin access only",
+    });
+  }
+
+  next();
+};
+
 module.exports = authMiddleware;
 module.exports.authMiddleware = authMiddleware;
 module.exports.adminOnly = adminOnly;
+module.exports.superAdminOnly = superAdminOnly;

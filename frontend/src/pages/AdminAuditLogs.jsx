@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
-import { getAuditLogs } from "../api/adminApi";
+import { deleteAuditLog, getAuditLogs } from "../api/adminApi";
+import useAuth from "../context/useAuth";
 import useToast from "../context/useToast";
 
 function AdminAuditLogs() {
+  const { user } = useAuth();
   const { showToast } = useToast();
+
+  const isSuperAdmin = user?.isAdmin && user?.adminRole === "super_admin";
 
   const [logs, setLogs] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [workingId, setWorkingId] = useState("");
 
   const fetchLogs = async () => {
     try {
@@ -26,6 +31,26 @@ function AdminAuditLogs() {
     const timer = setTimeout(fetchLogs, 250);
     return () => clearTimeout(timer);
   }, [search]);
+
+  const handleDelete = async (log) => {
+    const confirmed = window.confirm(
+      "Delete this audit log? Only super admin can do this."
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setWorkingId(log._id);
+      await deleteAuditLog(log._id);
+      showToast("Audit log deleted", "success");
+      fetchLogs();
+    } catch (error) {
+      console.error(error);
+      showToast(error.response?.data?.message || "Failed to delete audit log", "error");
+    } finally {
+      setWorkingId("");
+    }
+  };
 
   const formatDate = (value) => {
     if (!value) return "N/A";
@@ -46,8 +71,8 @@ function AdminAuditLogs() {
           <div className="section-eyebrow">Admin</div>
           <h1 className="audit-title">Audit Logs</h1>
           <p className="audit-subtitle">
-            Track important admin actions including user moderation, listing moderation,
-            support workflow changes, and account controls.
+            Track admin actions including user moderation, listing changes, ticket updates,
+            warnings, and account controls.
           </p>
         </section>
 
@@ -79,19 +104,35 @@ function AdminAuditLogs() {
                   </div>
 
                   <div className="audit-meta">
-                    <span>
-                      Admin: {log.admin?.name || "Unknown admin"}
-                    </span>
-                    <span>
-                      Target: {log.targetLabel || log.targetType || "N/A"}
-                    </span>
+                    <span>Admin: {log.admin?.name || "Unknown admin"}</span>
+                    <span>Target: {log.targetLabel || log.targetType || "N/A"}</span>
                     {log.targetType && <span>Type: {log.targetType}</span>}
                   </div>
 
-                  {log.details && (
-                    <p className="audit-details">{log.details}</p>
+                  {log.details && <p className="audit-details">{log.details}</p>}
+
+                  {log.snapshot && Object.keys(log.snapshot).length > 0 && (
+                    <details className="audit-details">
+                      <summary>View saved data</summary>
+                      <pre style={{ whiteSpace: "pre-wrap", fontSize: "12px" }}>
+                        {JSON.stringify(log.snapshot, null, 2)}
+                      </pre>
+                    </details>
                   )}
                 </div>
+
+                {isSuperAdmin && (
+                  <div className="au-actions">
+                    <button
+                      type="button"
+                      className="au-btn block"
+                      disabled={workingId === log._id}
+                      onClick={() => handleDelete(log)}
+                    >
+                      {workingId === log._id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
+                )}
               </article>
             ))}
           </section>

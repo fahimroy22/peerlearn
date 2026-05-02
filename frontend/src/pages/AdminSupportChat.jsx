@@ -1,3 +1,7 @@
 import SupportChat from "./SupportChat";
 
-export default SupportChat;
+function AdminSupportChat() {
+  return <SupportChat />;
+}
+
+export default AdminSupportChat;

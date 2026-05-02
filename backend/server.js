@@ -65,6 +65,7 @@ io.on("connection", (socket) => {
   console.log("Socket connected:", socket.id);
 
   const userId = socket.handshake.auth?.userId;
+
   if (userId) {
     socket.join(`user_${userId}`);
   }
@@ -91,6 +92,14 @@ io.on("connection", (socket) => {
 
   socket.on("leave_exchange", (conversationId) => {
     if (conversationId) socket.leave(`exchange_${conversationId}`);
+  });
+
+  socket.on("join_support_ticket", (ticketId) => {
+    if (ticketId) socket.join(`support_ticket_${ticketId}`);
+  });
+
+  socket.on("leave_support_ticket", (ticketId) => {
+    if (ticketId) socket.leave(`support_ticket_${ticketId}`);
   });
 
   socket.on("session_typing", ({ sessionId, userName }) => {
@@ -126,6 +135,20 @@ io.on("connection", (socket) => {
   socket.on("exchange_stop_typing", ({ conversationId }) => {
     if (conversationId) {
       socket.to(`exchange_${conversationId}`).emit("exchange_stop_typing");
+    }
+  });
+
+  socket.on("support_typing", ({ ticketId, userName }) => {
+    if (ticketId) {
+      socket.to(`support_ticket_${ticketId}`).emit("support_typing", {
+        userName,
+      });
+    }
+  });
+
+  socket.on("support_stop_typing", ({ ticketId }) => {
+    if (ticketId) {
+      socket.to(`support_ticket_${ticketId}`).emit("support_stop_typing");
     }
   });
 
