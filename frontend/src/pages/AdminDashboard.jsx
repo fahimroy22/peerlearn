@@ -611,12 +611,12 @@ function AdminDashboard() {
                           </span>
 
                           <span
-                            className={`au-badge ${
-                              item.available ? "role-tutor" : "status-blocked"
-                            }`}
-                          >
-                            {item.available ? "Available" : "Unavailable"}
-                          </span>
+  className={`au-badge ${
+    item.admin?.isSupportAvailable ? "role-tutor" : "status-blocked"
+  }`}
+>
+  {item.admin?.isSupportAvailable ? "Available" : "Unavailable"}
+</span>
                         </div>
 
                         <div className="admin-workload-meta">

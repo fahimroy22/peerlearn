@@ -943,3 +943,197 @@
 .admin-chart-head strong {
   font-size: 1rem;
 }
+/* =====================
+   MOBILE RESPONSIVE FIXES
+===================== */
+
+.admin-profile-page {
+  overflow-x: hidden;
+}
+
+.admin-profile-page .dashboard-shell {
+  width: 100%;
+  max-width: 1120px;
+  padding-inline: 14px;
+}
+
+.admin-profile-hero,
+.admin-profile-panel,
+.admin-workload-section,
+.admin-analytics-section {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-dashboard-hero-actions a,
+.admin-dashboard-hero-actions button {
+  width: 100%;
+}
+
+.admin-profile-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.admin-profile-layout,
+.admin-overview-grid,
+.admin-chart-grid,
+.admin-workload-list,
+.admin-security-grid {
+  min-width: 0;
+}
+
+.admin-workload-content,
+.admin-workload-top,
+.admin-workload-meta {
+  min-width: 0;
+}
+
+.admin-workload-meta span {
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .admin-profile-page .dashboard-shell {
+    padding-inline: 12px;
+  }
+
+  .admin-profile-hero {
+    margin-top: 12px;
+  }
+
+  .admin-profile-hero,
+  .admin-profile-panel,
+  .admin-workload-section,
+  .admin-analytics-section {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .admin-profile-header-row,
+  .admin-section-head,
+  .admin-profile-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-dashboard-hero-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-profile-collapse {
+    width: 100%;
+  }
+
+  .admin-profile-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-profile-identity-box {
+    align-items: center;
+    text-align: center;
+  }
+
+  .admin-profile-avatar-column {
+    align-items: center;
+  }
+
+  .admin-profile-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-profile-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .admin-profile-save,
+  .admin-profile-secondary,
+  .admin-danger-button {
+    width: 100%;
+  }
+
+  .admin-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-chart-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-chart-card {
+    min-height: auto;
+  }
+
+  .admin-chart-bars {
+    height: 70px;
+  }
+
+  .admin-workload-list {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-workload-card {
+    align-items: flex-start;
+  }
+
+  .admin-workload-top,
+  .admin-workload-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-profile-page .dashboard-shell {
+    padding-inline: 10px;
+  }
+
+  .admin-profile-hero .dashboard-title,
+  .admin-profile-title {
+    font-size: 1.45rem;
+    letter-spacing: -0.035em;
+  }
+
+  .admin-profile-hero .dashboard-subtitle,
+  .admin-profile-subtitle {
+    font-size: 0.82rem;
+  }
+
+  .admin-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-overview-card {
+    padding: 13px;
+  }
+
+  .admin-profile-box {
+    padding: 14px;
+  }
+
+  .admin-security-panel {
+    padding: 14px;
+  }
+
+  .admin-workload-card {
+    flex-direction: column;
+  }
+
+  .admin-workload-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .admin-chart-bars {
+    gap: 4px;
+  }
+
+  .admin-chart-bar-wrap span {
+    font-size: 0.56rem;
+  }
+}
