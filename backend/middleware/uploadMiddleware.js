@@ -1,24 +1,6 @@
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
 
-const uploadDir = path.join(__dirname, "..", "uploads", "chat");
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext).replace(/\s+/g, "-");
-    cb(null, `${Date.now()}-${base}${ext}`);
-  },
-});
-
+// ✅ Allowed file types (same as before)
 const allowedMimeTypes = [
   "image/jpeg",
   "image/png",
@@ -37,6 +19,7 @@ const allowedMimeTypes = [
   "application/octet-stream",
 ];
 
+// ✅ Keep validation
 const fileFilter = (req, file, cb) => {
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
@@ -45,11 +28,12 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
+// ✅ NEW: memory storage (no local files)
 const uploadChatFile = multer({
-  storage,
+  storage: multer.memoryStorage(),
   fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024,
+    fileSize: 10 * 1024 * 1024, // 10MB
   },
 });
 

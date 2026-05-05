@@ -93,6 +93,12 @@ function AdminDashboard() {
     return `${API_BASE_URL}${adminForm.avatar}`;
   }, [adminForm.avatar]);
 
+  const currentAdminWorkload = useMemo(() => {
+    return workload.find((item) => String(item.admin?._id) === String(user?._id));
+  }, [workload, user?._id]);
+
+  const isAvailable = Boolean(currentAdminWorkload?.admin?.isSupportAvailable);
+
   const handleAdminFormChange = (e) => {
     setAdminForm((prev) => ({
       ...prev,
@@ -215,11 +221,7 @@ function AdminDashboard() {
     try {
       setSavingAvailability(true);
 
-      const currentAdmin = workload.find(
-        (item) => String(item.admin?._id) === String(user?._id)
-      );
-
-      const nextValue = !currentAdmin?.admin?.isSupportAvailable;
+      const nextValue = !currentAdminWorkload?.admin?.isSupportAvailable;
 
       await updateMySupportAvailability(nextValue);
 
@@ -266,20 +268,25 @@ function AdminDashboard() {
   };
 
   return (
-    <div className="page dashboard-page">
+    <div className="page dashboard-page admin-profile-page">
       <section className="dashboard-shell dashboard-shell-final">
-        <section className="dashboard-welcome-strip">
-          <div className="dashboard-welcome-copy">
-            <div className="section-eyebrow">Admin Panel</div>
+        <section className="admin-profile-hero">
+          <div>
+            <div className="section-eyebrow">Admin Control Center</div>
             <h1 className="dashboard-title">Platform Administration</h1>
             <p className="dashboard-subtitle">
-              Manage users, support tickets, admins, and platform activity from one simple place.
+              Manage your admin identity, platform health, support workload, and system activity
+              from one clean workspace.
             </p>
           </div>
 
           <div className="admin-dashboard-hero-actions">
-            <Link to="/admin/profile">
-              <button type="button">Admin Profile</button>
+            <Link to="/admin/users">
+              <button type="button">Manage Users</button>
+            </Link>
+
+            <Link to="/admin/support">
+              <button type="button">Support Tickets</button>
             </Link>
 
             <Link to="/admin/audit">
@@ -295,7 +302,7 @@ function AdminDashboard() {
                 <div className="section-eyebrow">Profile Settings</div>
                 <h2 className="admin-profile-title">Admin Profile</h2>
                 <p className="admin-profile-subtitle">
-                  Update the admin picture, display name, and admin ID shown in the navbar.
+                  Keep your admin identity, security access, and support availability organized.
                 </p>
               </div>
 
@@ -310,8 +317,8 @@ function AdminDashboard() {
 
             {showProfileCard && (
               <>
-                <form onSubmit={handleAdminProfileSubmit}>
-                  <div className="admin-profile-top">
+                <form className="admin-profile-layout" onSubmit={handleAdminProfileSubmit}>
+                  <section className="admin-profile-box admin-profile-identity-box">
                     <div className="admin-profile-avatar-column">
                       <div className="admin-profile-avatar-preview">
                         {adminAvatarSrc ? (
@@ -333,54 +340,67 @@ function AdminDashboard() {
                     </div>
 
                     <div className="admin-profile-meta">
-                      <h3>{adminForm.name || "Platform Admin"}</h3>
-                      <p>ID: {adminForm.publicId || "Not set"}</p>
                       <span className="admin-admin-badge">
                         {user?.adminRole === "super_admin"
                           ? "Super Administrator"
                           : "Platform Administrator"}
                       </span>
-                    </div>
-                  </div>
 
-                  <div className="admin-profile-fields">
-                    <div className="admin-profile-group">
-                      <label className="admin-profile-label">Admin name</label>
-                      <input
-                        className="admin-profile-input"
-                        type="text"
-                        name="name"
-                        value={adminForm.name}
-                        onChange={handleAdminFormChange}
-                        placeholder="Enter admin name"
-                        required
-                      />
+                      <h3>{adminForm.name || "Platform Admin"}</h3>
+                      <p>ID: {adminForm.publicId || "Not set"}</p>
+                      <p>{user?.email || "No email available"}</p>
                     </div>
+                  </section>
 
-                    <div className="admin-profile-group">
-                      <label className="admin-profile-label">Admin ID</label>
-                      <input
-                        className="admin-profile-input"
-                        type="text"
-                        name="publicId"
-                        value={adminForm.publicId}
-                        onChange={handleAdminFormChange}
-                        placeholder="Enter 8 digit admin ID"
-                        maxLength="8"
-                        required
-                      />
+                  <section className="admin-profile-box">
+                    <div className="admin-profile-box-head">
+                      <div>
+                        <h3 className="admin-profile-box-title">Profile Information</h3>
+                        <p className="admin-profile-box-subtitle">
+                          These details appear in your admin navbar and admin records.
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="admin-profile-group full">
-                      <label className="admin-profile-label">Picture URL</label>
-                      <input
-                        className="admin-profile-input"
-                        type="text"
-                        name="avatar"
-                        value={adminForm.avatar}
-                        onChange={handleAdminFormChange}
-                        placeholder="Paste image URL or /uploads/image-name.jpg"
-                      />
+                    <div className="admin-profile-fields">
+                      <div className="admin-profile-group">
+                        <label className="admin-profile-label">Admin name</label>
+                        <input
+                          className="admin-profile-input"
+                          type="text"
+                          name="name"
+                          value={adminForm.name}
+                          onChange={handleAdminFormChange}
+                          placeholder="Enter admin name"
+                          required
+                        />
+                      </div>
+
+                      <div className="admin-profile-group">
+                        <label className="admin-profile-label">Admin ID</label>
+                        <input
+                          className="admin-profile-input"
+                          type="text"
+                          name="publicId"
+                          value={adminForm.publicId}
+                          onChange={handleAdminFormChange}
+                          placeholder="Enter 8 digit admin ID"
+                          maxLength="8"
+                          required
+                        />
+                      </div>
+
+                      <div className="admin-profile-group full">
+                        <label className="admin-profile-label">Picture URL</label>
+                        <input
+                          className="admin-profile-input"
+                          type="text"
+                          name="avatar"
+                          value={adminForm.avatar}
+                          onChange={handleAdminFormChange}
+                          placeholder="Paste image URL or /uploads/image-name.jpg"
+                        />
+                      </div>
                     </div>
 
                     <div className="admin-profile-actions">
@@ -411,10 +431,10 @@ function AdminDashboard() {
                           setShowPasswordPanel(false);
                         }}
                       >
-                        Security Settings
+                        Security
                       </button>
                     </div>
-                  </div>
+                  </section>
                 </form>
 
                 <div className="admin-profile-note">
@@ -424,7 +444,10 @@ function AdminDashboard() {
 
                 {showPasswordPanel && (
                   <form className="admin-security-panel" onSubmit={handlePasswordSubmit}>
-                    <h3>Change Password</h3>
+                    <div className="admin-security-panel-head">
+                      <h3>Change Password</h3>
+                      <p>Update your admin password securely.</p>
+                    </div>
 
                     <div className="admin-profile-fields">
                       <div className="admin-profile-group">
@@ -478,7 +501,10 @@ function AdminDashboard() {
 
                 {showSecurityPanel && (
                   <div className="admin-security-panel">
-                    <h3>Security Settings</h3>
+                    <div className="admin-security-panel-head">
+                      <h3>Security Settings</h3>
+                      <p>Review your admin access and session status.</p>
+                    </div>
 
                     <div className="admin-security-grid">
                       <div>
@@ -517,63 +543,39 @@ function AdminDashboard() {
           <div className="empty-state">Loading admin dashboard...</div>
         ) : (
           <>
-            <div className="chats-summary-strip">
-              <div className="chats-summary-card">
-                <span className="chats-summary-label">Users</span>
-                <strong className="chats-summary-value">{stats?.users || 0}</strong>
+            <section className="admin-overview-grid">
+              <div className="admin-overview-card">
+                <span>Users</span>
+                <strong>{stats?.users || 0}</strong>
               </div>
 
-              <div className="chats-summary-card">
-                <span className="chats-summary-label">Teach Listings</span>
-                <strong className="chats-summary-value">{stats?.teachListings || 0}</strong>
+              <div className="admin-overview-card">
+                <span>Teach Listings</span>
+                <strong>{stats?.teachListings || 0}</strong>
               </div>
 
-              <div className="chats-summary-card">
-                <span className="chats-summary-label">Learn Listings</span>
-                <strong className="chats-summary-value">{stats?.learnListings || 0}</strong>
+              <div className="admin-overview-card">
+                <span>Learn Listings</span>
+                <strong>{stats?.learnListings || 0}</strong>
               </div>
 
-              <div className="chats-summary-card">
-                <span className="chats-summary-label">Exchanges</span>
-                <strong className="chats-summary-value">{stats?.exchanges || 0}</strong>
+              <div className="admin-overview-card">
+                <span>Exchanges</span>
+                <strong>{stats?.exchanges || 0}</strong>
               </div>
 
-              <div className="chats-summary-card chats-summary-card-accent">
-                <span className="chats-summary-label">Open Tickets</span>
-                <strong className="chats-summary-value">{stats?.openTickets || 0}</strong>
-              </div>
-            </div>
-
-            <section className="au-stats" style={{ marginTop: "20px" }}>
-              <div className="au-stat">
-                <div className="au-stat-label">Admins</div>
-                <div className="au-stat-value">{stats?.admins || 0}</div>
-              </div>
-
-              <div className="au-stat">
-                <div className="au-stat-label">Blocked Admins</div>
-                <div className="au-stat-value">{stats?.blockedAdmins || 0}</div>
-              </div>
-
-              <div className="au-stat">
-                <div className="au-stat-label">Active Tickets</div>
-                <div className="au-stat-value">{stats?.activeTickets || 0}</div>
-              </div>
-
-              <div className="au-stat">
-                <div className="au-stat-label">Resolved Tickets</div>
-                <div className="au-stat-value">{stats?.resolvedTickets || 0}</div>
+              <div className="admin-overview-card highlight">
+                <span>Open Tickets</span>
+                <strong>{stats?.openTickets || 0}</strong>
               </div>
             </section>
 
-            <section className="au-page" style={{ padding: 0, marginTop: "20px" }}>
-              <div className="au-header">
+            <section className="admin-workload-section">
+              <div className="admin-section-head">
                 <div>
-                  <div className="au-eyebrow">Workload</div>
-                  <h2 className="au-title" style={{ fontSize: "24px" }}>
-                    Admin Availability
-                  </h2>
-                  <p className="au-subtitle">See who can take more support tickets.</p>
+                  <div className="section-eyebrow">Workload</div>
+                  <h2>Admin Availability</h2>
+                  <p>See which admins can take more support tickets.</p>
                 </div>
 
                 <button
@@ -582,45 +584,47 @@ function AdminDashboard() {
                   disabled={savingAvailability}
                   onClick={handleToggleAvailability}
                 >
-                  {savingAvailability ? "Updating..." : "Toggle My Availability"}
+                  {savingAvailability
+                    ? "Updating..."
+                    : isAvailable
+                    ? "Set Unavailable"
+                    : "Set Available"}
                 </button>
               </div>
 
               {workload.length === 0 ? (
                 <div className="au-empty">Admin workload unavailable.</div>
               ) : (
-                <section className="au-list">
+                <section className="admin-workload-list">
                   {workload.map((item) => (
-                    <article key={item.admin._id} className="au-card">
-                      <div className="au-user">
-                        <div className="au-avatar">
-                          {item.admin.name?.charAt(0)?.toUpperCase() || "A"}
+                    <article key={item.admin._id} className="admin-workload-card">
+                      <div className="admin-workload-avatar">
+                        {item.admin.name?.charAt(0)?.toUpperCase() || "A"}
+                      </div>
+
+                      <div className="admin-workload-content">
+                        <div className="admin-workload-top">
+                          <strong>{item.admin.name}</strong>
+
+                          <span className="au-badge role-admin">
+                            {item.admin.adminRole === "super_admin" ? "Super Admin" : "Admin"}
+                          </span>
+
+                          <span
+                            className={`au-badge ${
+                              item.available ? "role-tutor" : "status-blocked"
+                            }`}
+                          >
+                            {item.available ? "Available" : "Unavailable"}
+                          </span>
                         </div>
 
-                        <div className="au-main">
-                          <div className="au-top">
-                            <div className="au-name">{item.admin.name}</div>
-
-                            <span className="au-badge role-admin">
-                              {item.admin.adminRole === "super_admin" ? "Super Admin" : "Admin"}
-                            </span>
-
-                            <span
-                              className={`au-badge ${
-                                item.available ? "role-tutor" : "status-blocked"
-                              }`}
-                            >
-                              {item.available ? "Available" : "Unavailable"}
-                            </span>
-                          </div>
-
-                          <div className="au-meta">
-                            <span>{item.admin.email}</span>
-                            <span>
-                              Tickets: {item.activeTickets}/{item.maxActiveTickets}
-                            </span>
-                            <span>Warnings: {item.warningsCount}</span>
-                          </div>
+                        <div className="admin-workload-meta">
+                          <span>{item.admin.email}</span>
+                          <span>
+                            Tickets: {item.activeTickets}/{item.maxActiveTickets}
+                          </span>
+                          <span>Warnings: {item.warningsCount}</span>
                         </div>
                       </div>
                     </article>
@@ -629,33 +633,25 @@ function AdminDashboard() {
               )}
             </section>
 
-            <section className="admin-chart-grid">
-              {renderMiniChart(charts?.users || [], "New Users")}
-              {renderMiniChart(charts?.tickets || [], "Support Tickets")}
-              {renderMiniChart(charts?.teachListings || [], "Teach Listings")}
-              {renderMiniChart(charts?.learnListings || [], "Learn Listings")}
-              {renderMiniChart(charts?.exchanges || [], "Skill Exchanges")}
+            <section className="admin-analytics-section">
+              <div className="admin-section-head">
+                <div>
+                  <div className="section-eyebrow">Analytics</div>
+                  <h2>Platform Activity</h2>
+                  <p>Quick seven-day view of recent platform movement.</p>
+                </div>
+              </div>
+
+              <section className="admin-chart-grid">
+                {renderMiniChart(charts?.users || [], "New Users")}
+                {renderMiniChart(charts?.tickets || [], "Support Tickets")}
+                {renderMiniChart(charts?.teachListings || [], "Teach Listings")}
+                {renderMiniChart(charts?.learnListings || [], "Learn Listings")}
+                {renderMiniChart(charts?.exchanges || [], "Skill Exchanges")}
+              </section>
             </section>
           </>
         )}
-
-        <div className="actions auth-actions" style={{ marginTop: "24px" }}>
-          <Link to="/admin/users">
-            <button type="button">Manage Users</button>
-          </Link>
-
-          <Link to="/admin/support">
-            <button type="button">Support Tickets</button>
-          </Link>
-
-          <Link to="/admin/listings">
-            <button type="button">Listings</button>
-          </Link>
-
-          <Link to="/admin/audit">
-            <button type="button">Audit Logs</button>
-          </Link>
-        </div>
       </section>
     </div>
   );

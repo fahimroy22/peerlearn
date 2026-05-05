@@ -1,6 +1,7 @@
 const Message = require("../models/Message");
 const Session = require("../models/Session");
 const { createAndEmitNotification } = require("./notificationController");
+const uploadToCloudinary = require("../utils/uploadToCloudinary");
 
 const detectFileType = (file) => {
   if (!file) return "file";
@@ -45,15 +46,19 @@ const sendMessage = async (req, res) => {
       return res.status(403).json({ message: "Not authorized" });
     }
 
-    const attachment = file
-      ? {
-          url: `/uploads/${file.filename}`,
-          fileName: file.originalname,
-          fileType: detectFileType(file),
-          mimeType: file.mimetype,
-          size: file.size,
-        }
-      : null;
+    let attachment = null;
+
+    if (file) {
+      const uploaded = await uploadToCloudinary(file.buffer, "peerlearn/session-messages");
+
+      attachment = {
+        url: uploaded.secure_url,
+        fileName: file.originalname,
+        fileType: detectFileType(file),
+        mimeType: file.mimetype,
+        size: file.size,
+      };
+    }
 
     const message = await Message.create({
       session: sessionId,

@@ -294,55 +294,76 @@ function Chat() {
       <div className="ww-layout">
         <aside className="ww-sidebar">
           <div className="ww-sidebar-header">
-            <div className="ww-avatar-lg">
+            <div className="ww-avatar-lg ww-avatar-animated">
               {headerName?.charAt(0)?.toUpperCase() || "C"}
             </div>
-            <div>
+            <div className="ww-sidebar-header-info">
               <div className="ww-sidebar-title">{headerName}</div>
-              <div className="ww-sidebar-subtitle">{headerId}</div>
+              <div className="ww-sidebar-subtitle">@{headerId}</div>
+              <div className="ww-status-badge">
+                <span className="ww-status-dot"></span>
+                Active Session
+              </div>
             </div>
           </div>
 
           <div className="ww-sidebar-card ww-skill-card">
-            <div className="ww-info-label">Skill Info</div>
+            <div className="ww-card-icon">📚</div>
+            <div className="ww-info-label">Learning Focus</div>
             <div className="ww-skill-name">{skillName}</div>
             <div className="ww-skill-description">{skillDescription}</div>
           </div>
 
           <div className="ww-sidebar-card ww-sidebar-card--meet">
-            <div className="ww-info-label ww-info-label--meet">Google Meet</div>
+            <div className="ww-card-icon">🎥</div>
+            <div className="ww-info-label ww-info-label--meet">Video Session</div>
             {meetLink ? (
               <a
                 href={meetLink}
                 target="_blank"
                 rel="noreferrer"
-                className="btn-join-call"
+                className="btn-join-call btn-join-call--pulse"
               >
+                <span className="btn-icon">▶</span>
                 Join Meet Session
               </a>
             ) : (
-              <div className="ww-meet-unavailable">Meet link not available</div>
+              <div className="ww-meet-unavailable">
+                <span className="meet-unavailable-icon">⏸</span>
+                No video link available
+              </div>
             )}
           </div>
 
           <div className="ww-sidebar-note">
-            Use this space to coordinate lesson timing, links, materials, and
-            follow-ups.
+            <div className="ww-note-icon">💡</div>
+            <div>Use this space to coordinate lesson timing, share materials, and plan follow-ups.</div>
           </div>
         </aside>
 
         <section className="ww-chat-panel">
           <div className="ww-chat-header">
             <div className="ww-chat-header-left">
-              <div className="ww-avatar">
+              <div className="ww-avatar ww-avatar-animated">
                 {headerName?.charAt(0)?.toUpperCase() || "C"}
               </div>
 
-              <div>
+              <div className="ww-chat-header-info">
                 <div className="ww-chat-name">{headerName}</div>
-                <div className="ww-chat-id">{headerId}</div>
+                <div className="ww-chat-id">@{headerId}</div>
                 <div className="ww-chat-status">
-                  {isOtherTyping ? "typing..." : skillName}
+                  {isOtherTyping ? (
+                    <span className="ww-typing-text">
+                      <span className="ww-typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </span>
+                      typing...
+                    </span>
+                  ) : (
+                    skillName
+                  )}
                 </div>
               </div>
             </div>
@@ -352,23 +373,29 @@ function Chat() {
                 href={meetLink}
                 target="_blank"
                 rel="noreferrer"
-                className="btn-join-call"
+                className="btn-join-call btn-join-call--header"
               >
-                Join Meet Session
+                <span className="btn-icon">▶</span>
+                Join Call
               </a>
             ) : (
               <span className="ww-chat-header-meet-note">
-                Meet link not available
+                📹 No active call
               </span>
             )}
           </div>
 
           <div className="ww-chat-body">
             {loading ? (
-              <div className="empty-state">Loading messages...</div>
+              <div className="empty-state">
+                <div className="empty-state-spinner"></div>
+                <p>Loading messages...</p>
+              </div>
             ) : messages.length === 0 ? (
               <div className="empty-state">
-                No messages yet. Start the conversation.
+                <div className="empty-state-icon">💬</div>
+                <h3>No messages yet</h3>
+                <p>Start the conversation by sending your first message</p>
               </div>
             ) : (
               messages.map((msg, index) => {
@@ -397,7 +424,7 @@ function Chat() {
                 const showSender = !isOwnMessage && !sameSenderAsPrevious;
 
                 return (
-                  <div key={msg._id}>
+                  <div key={msg._id} className="ww-message-wrapper">
                     {startsNewDay && (
                       <div className="ww-day-separator">
                         <span>{getDayLabel(msg.createdAt)}</span>
@@ -448,9 +475,38 @@ function Chat() {
               })
             )}
 
-            {isOtherTyping && <div className="ww-typing-indicator">Typing...</div>}
+            {isOtherTyping && (
+              <div className="ww-typing-indicator">
+                <div className="ww-typing-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+            )}
             <div ref={bottomRef} />
           </div>
+
+          {selectedFile && (
+            <div className="ww-selected-file">
+              <div className="ww-selected-file-info">
+                <span className="ww-selected-file-icon">
+                  {selectedFile.type.startsWith("image/") ? "🖼️" : "📎"}
+                </span>
+                <span className="ww-selected-file-name">{selectedFile.name}</span>
+                <span className="ww-selected-file-size">
+                  {(selectedFile.size / 1024).toFixed(1)} KB
+                </span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setSelectedFile(null)}
+                className="ww-remove-file"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
           <form className="ww-composer" onSubmit={handleSend}>
             <div className="ww-attach-wrap">
@@ -458,39 +514,48 @@ function Chat() {
                 type="button"
                 className="ww-attach-btn"
                 onClick={() => setMenuOpen((prev) => !prev)}
+                aria-label="Attach file"
               >
-                📎
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 5V15M5 10H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
               </button>
 
               {menuOpen && (
-                <div className="ww-attach-menu">
-                  <button
-                    type="button"
-                    className="ww-attach-menu-item"
-                    onClick={() => imageInputRef.current?.click()}
-                  >
-                    🖼️ Image
-                  </button>
-                  <button
-                    type="button"
-                    className="ww-attach-menu-item"
-                    onClick={() => documentInputRef.current?.click()}
-                  >
-                    📄 Document
-                  </button>
-                  <button
-                    type="button"
-                    className="ww-attach-menu-item"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    📎 File
-                  </button>
-                </div>
+                <>
+                  <div className="ww-attach-overlay" onClick={() => setMenuOpen(false)} />
+                  <div className="ww-attach-menu">
+                    <button
+                      type="button"
+                      className="ww-attach-menu-item"
+                      onClick={() => imageInputRef.current?.click()}
+                    >
+                      <span className="ww-attach-icon">🖼️</span>
+                      <span>Image</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="ww-attach-menu-item"
+                      onClick={() => documentInputRef.current?.click()}
+                    >
+                      <span className="ww-attach-icon">📄</span>
+                      <span>Document</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="ww-attach-menu-item"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <span className="ww-attach-icon">📎</span>
+                      <span>File</span>
+                    </button>
+                  </div>
+                </>
               )}
             </div>
 
             <textarea
-              placeholder="Type a message"
+              placeholder="Type a message..."
               value={text}
               onChange={(e) => handleTypingChange(e.target.value)}
               onKeyDown={(e) => {
@@ -501,7 +566,15 @@ function Chat() {
               }}
             />
 
-            <button type="submit">Send</button>
+            <button 
+              type="submit" 
+              className="ww-send-btn"
+              disabled={!text.trim() && !selectedFile}
+            >
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
 
             <input
               type="file"
@@ -524,15 +597,6 @@ function Chat() {
               onChange={handleFileChange}
             />
           </form>
-
-          {selectedFile && (
-            <div className="ww-selected-file">
-              <span>📎 {selectedFile.name}</span>
-              <button type="button" onClick={() => setSelectedFile(null)}>
-                Remove
-              </button>
-            </div>
-          )}
         </section>
       </div>
     </div>

@@ -111,10 +111,10 @@ const userSchema = new mongoose.Schema(
     },
 
     maxActiveTickets: {
-      type: Number,
-      default: 5,
-      min: 1,
-    },
+  type: Number,
+  default: 15,
+  min: 1,
+},
 
     warnings: {
       type: [warningSchema],

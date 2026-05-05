@@ -658,16 +658,18 @@ const getAdminWorkload = async (req, res) => {
           status: { $in: ["open", "in_progress"] },
         });
 
-        return {
-          admin,
-          activeTickets,
-          maxActiveTickets: admin.maxActiveTickets || 5,
-          available:
-            admin.accountStatus === "active" &&
-            admin.isSupportAvailable &&
-            activeTickets < (admin.maxActiveTickets || 5),
-          warningsCount: admin.warnings?.length || 0,
-        };
+        const maxActiveTickets = admin.maxActiveTickets || 15;
+
+return {
+  admin,
+  activeTickets,
+  maxActiveTickets,
+  available:
+    admin.accountStatus === "active" &&
+    admin.isSupportAvailable &&
+    activeTickets < maxActiveTickets,
+  warningsCount: admin.warnings?.length || 0,
+};
       })
     );
 
@@ -712,7 +714,7 @@ const promoteToAdmin = async (req, res) => {
     user.isAdmin = true;
     user.adminRole = "admin";
     user.isSupportAvailable = true;
-    user.maxActiveTickets = user.maxActiveTickets || 5;
+    user.maxActiveTickets = user.maxActiveTickets || 15;
 
     await user.save();
 

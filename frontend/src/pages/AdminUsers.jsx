@@ -15,7 +15,9 @@ function AdminUsers() {
   const { user } = useAuth();
   const { showToast } = useToast();
 
-  const isSuperAdmin = user?.isAdmin && user?.adminRole === "super_admin";
+  const adminRole = user?.adminRole || user?.role;
+const isSuperAdmin =
+  user?.isAdmin && ["super_admin", "superadmin"].includes(adminRole);
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);

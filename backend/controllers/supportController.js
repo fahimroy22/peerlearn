@@ -3,6 +3,7 @@ const SupportMessage = require("../models/SupportMessage");
 const AuditLog = require("../models/AuditLog");
 const User = require("../models/User");
 const { createAndEmitNotification } = require("./notificationController");
+const uploadToCloudinary = require("../utils/uploadToCloudinary");
 
 const detectFileType = (file) => {
   if (!file) return "file";
@@ -210,15 +211,19 @@ const createSupportTicket = async (req, res) => {
       lastMessageAt: new Date(),
     });
 
-    const attachment = file
-      ? {
-          url: `/uploads/${file.filename}`,
-          fileName: file.originalname,
-          fileType: detectFileType(file),
-          mimeType: file.mimetype,
-          size: file.size,
-        }
-      : null;
+    let attachment = null;
+
+if (file) {
+  const uploaded = await uploadToCloudinary(file.buffer, "peerlearn/support");
+
+  attachment = {
+    url: uploaded.secure_url,
+    fileName: file.originalname,
+    fileType: detectFileType(file),
+    mimeType: file.mimetype,
+    size: file.size,
+  };
+}
 
     const firstMessage = await SupportMessage.create({
       ticket: ticket._id,
@@ -365,15 +370,19 @@ const sendSupportMessage = async (req, res) => {
       return res.status(403).json({ message: "Not authorized" });
     }
 
-    const attachment = file
-      ? {
-          url: `/uploads/${file.filename}`,
-          fileName: file.originalname,
-          fileType: detectFileType(file),
-          mimeType: file.mimetype,
-          size: file.size,
-        }
-      : null;
+    let attachment = null;
+
+if (file) {
+  const uploaded = await uploadToCloudinary(file.buffer, "peerlearn/support");
+
+  attachment = {
+    url: uploaded.secure_url,
+    fileName: file.originalname,
+    fileType: detectFileType(file),
+    mimeType: file.mimetype,
+    size: file.size,
+  };
+}
 
     const supportMessage = await SupportMessage.create({
       ticket: ticketId,

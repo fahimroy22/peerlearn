@@ -1,6 +1,7 @@
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const Review = require("../models/Review");
+const uploadToCloudinary = require("../utils/uploadToCloudinary");
 
 const buildProfilePayload = (updatedUser) => ({
   _id: updatedUser._id,
@@ -139,7 +140,8 @@ const uploadProfileAvatar = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    user.avatar = `/uploads/${req.file.filename}`;
+    const uploaded = await uploadToCloudinary(req.file.buffer, "peerlearn/avatars");
+user.avatar = uploaded.secure_url;
     const updatedUser = await user.save();
 
     res.json({

@@ -1,6 +1,7 @@
 const ExchangeConversation = require("../models/ExchangeConversation");
 const ExchangeMessage = require("../models/ExchangeMessage");
 const { createAndEmitNotification } = require("./notificationController");
+const uploadToCloudinary = require("../utils/uploadToCloudinary");
 
 const detectFileType = (file) => {
   if (!file) return "file";
@@ -46,15 +47,22 @@ const sendExchangeMessage = async (req, res) => {
       return res.status(403).json({ message: "Not authorized" });
     }
 
-    const attachment = file
-      ? {
-          url: `/uploads/${file.filename}`,
-          fileName: file.originalname,
-          fileType: detectFileType(file),
-          mimeType: file.mimetype,
-          size: file.size,
-        }
-      : null;
+    let attachment = null;
+
+    if (file) {
+      const uploaded = await uploadToCloudinary(
+        file.buffer,
+        "peerlearn/exchange-messages"
+      );
+
+      attachment = {
+        url: uploaded.secure_url,
+        fileName: file.originalname,
+        fileType: detectFileType(file),
+        mimeType: file.mimetype,
+        size: file.size,
+      };
+    }
 
     const message = await ExchangeMessage.create({
       conversation: conversationId,
