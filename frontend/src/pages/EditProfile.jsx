@@ -4,7 +4,14 @@ import useAuth from "../context/useAuth";
 import api from "../api/axios";
 import useToast from "../context/useToast";
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAYS = ["Sat", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri"];
+
+const SLOT_PRESETS = [
+  { label: "Morning", start: "09:00", end: "12:00" },
+  { label: "Afternoon", start: "13:00", end: "17:00" },
+  { label: "Evening", start: "18:00", end: "21:00" },
+  { label: "Weekend", start: "10:00", end: "12:00", weekendOnly: true },
+];
 
 const createEmptyAvailability = () =>
   DAYS.map((day) => ({
@@ -18,6 +25,8 @@ function EditProfile() {
   const navigate = useNavigate();
 
   const [saving, setSaving] = useState(false);
+  const [activeDay, setActiveDay] = useState("Mon");
+  const [initialSnapshot, setInitialSnapshot] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -30,6 +39,12 @@ function EditProfile() {
 
   const [availability, setAvailability] = useState(createEmptyAvailability());
 
+  const buildSnapshot = (profileData, availabilityData) =>
+    JSON.stringify({
+      formData: profileData,
+      availability: availabilityData,
+    });
+
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -38,14 +53,14 @@ function EditProfile() {
           api.get(`/availability/${user?._id}`),
         ]);
 
-        setFormData({
+        const nextFormData = {
           name: profileRes.data.name || "",
           department: profileRes.data.department || "",
           semester: profileRes.data.semester || "",
           avatar: profileRes.data.avatar || "",
           bio: profileRes.data.bio || "",
           teachingStyle: profileRes.data.teachingStyle || "",
-        });
+        };
 
         const fetchedAvailability = Array.isArray(availabilityRes.data)
           ? availabilityRes.data
@@ -59,7 +74,13 @@ function EditProfile() {
           };
         });
 
+        setFormData(nextFormData);
         setAvailability(mergedAvailability);
+        setInitialSnapshot(buildSnapshot(nextFormData, mergedAvailability));
+
+        const firstActiveDay =
+          mergedAvailability.find((item) => item.slots.length > 0)?.day || "Mon";
+        setActiveDay(firstActiveDay);
       } catch (error) {
         console.error("Failed to load profile", error);
         showToast("Failed to load profile", "error");
@@ -93,17 +114,31 @@ function EditProfile() {
     );
   };
 
-  const handleAddSlot = (day) => {
+  const handleAddSlot = (day, presetSlot = { start: "", end: "" }) => {
+    setActiveDay(day);
+
     setAvailability((prev) =>
       prev.map((item) =>
         item.day === day
           ? {
               ...item,
-              slots: [...item.slots, { start: "", end: "" }],
+              slots: [...item.slots, presetSlot],
             }
           : item
       )
     );
+  };
+
+  const handleApplyPreset = (preset) => {
+    if (preset.weekendOnly) {
+      ["Sat", "Sun"].forEach((day) => {
+        handleAddSlot(day, { start: preset.start, end: preset.end });
+      });
+      setActiveDay("Sat");
+      return;
+    }
+
+    handleAddSlot(activeDay, { start: preset.start, end: preset.end });
   };
 
   const handleRemoveSlot = (day, slotIndex) => {
@@ -130,10 +165,12 @@ function EditProfile() {
     setSaving(true);
 
     try {
+      const cleanedAvailability = cleanAvailability(availability);
+
       const [profileRes] = await Promise.all([
         api.put("/users/profile", formData),
         api.patch("/availability", {
-          availability: cleanAvailability(availability),
+          availability: cleanedAvailability,
         }),
       ]);
 
@@ -154,6 +191,7 @@ function EditProfile() {
         );
       }
 
+      setInitialSnapshot(buildSnapshot(formData, availability));
       showToast("Profile and availability updated successfully", "success");
       navigate("/dashboard");
     } catch (error) {
@@ -167,6 +205,13 @@ function EditProfile() {
     }
   };
 
+  const scrollToSection = (sectionId) => {
+    document.getElementById(sectionId)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
+
   const avatarPreview = useMemo(() => {
     return formData.avatar?.trim() || user?.avatar || "";
   }, [formData.avatar, user?.avatar]);
@@ -174,210 +219,378 @@ function EditProfile() {
   const bioCount = formData.bio.length;
   const teachingStyleCount = formData.teachingStyle.length;
 
-  const totalSlots = availability.reduce((sum, item) => sum + item.slots.length, 0);
+  const totalSlots = useMemo(() => {
+    return availability.reduce((sum, item) => sum + item.slots.length, 0);
+  }, [availability]);
+
+  const currentSnapshot = useMemo(() => {
+    return buildSnapshot(formData, availability);
+  }, [formData, availability]);
+
+  const hasUnsavedChanges = initialSnapshot && currentSnapshot !== initialSnapshot;
+
+  const activeDayData =
+    availability.find((item) => item.day === activeDay) || availability[0];
+
+  const completedItems = [
+    { label: "Name", done: Boolean(formData.name.trim()) },
+    { label: "Department", done: Boolean(formData.department.trim()) },
+    { label: "Semester", done: Boolean(formData.semester.trim()) },
+    { label: "Avatar", done: Boolean(avatarPreview) },
+    { label: "Bio", done: Boolean(formData.bio.trim()) },
+    { label: "Teaching style", done: Boolean(formData.teachingStyle.trim()) },
+    { label: "Availability", done: totalSlots > 0 },
+  ];
 
   return (
-    <div className="page page-with-savebar">
-      <div className="listing-page-header">
-        <div>
-          <div className="section-eyebrow">Profile Settings</div>
-          <h1 className="page-title">Edit Profile</h1>
-          <p className="listing-page-subtitle">
-            Update how learners see you. Add a profile image, a strong bio, a
-            teaching style, and your weekly availability.
-          </p>
-        </div>
-      </div>
-
-      <form onSubmit={handleSaveProfile}>
-        <div className="edit-profile-layout">
-          <div className="card edit-profile-sidebar">
-            <h2 className="card-title">Live Preview</h2>
-
-            <div className="edit-profile-preview-card">
-              <div className="profile-avatar-wrap">
-                {avatarPreview ? (
-                  <img
-                    src={avatarPreview}
-                    alt={formData.name || "Profile"}
-                    className="profile-avatar profile-avatar-xl"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div className="profile-avatar profile-avatar-fallback profile-avatar-xl">
-                    {formData.name?.charAt(0)?.toUpperCase() || "U"}
-                  </div>
-                )}
-              </div>
-
-              <div className="edit-profile-preview-name">
-                {formData.name || "Your Name"}
-              </div>
-
-              <div className="edit-profile-preview-meta">
-                {user?.email || "your@email.com"}
-              </div>
-
-              <div className="edit-profile-preview-badges">
-                {formData.department && (
-                  <span className="badge badge-blue">{formData.department}</span>
-                )}
-                {formData.semester && (
-                  <span className="badge badge-yellow">Semester {formData.semester}</span>
-                )}
-                {user?.role && (
-                  <span className="badge badge-green">{user.role}</span>
-                )}
-                {user?.badge && (
-                  <span className="badge badge-blue">{user.badge}</span>
-                )}
-              </div>
-
-              <div className="profile-text-block">
-                <span className="listing-meta-label">Bio Preview</span>
-                <p>{formData.bio || "Your short bio will appear here."}</p>
-              </div>
-
-              <div className="profile-text-block">
-                <span className="listing-meta-label">Teaching Style Preview</span>
-                <p>
-                  {formData.teachingStyle ||
-                    "Your teaching style will appear here."}
-                </p>
-              </div>
-
-              <div className="profile-text-block">
-                <span className="listing-meta-label">Availability Preview</span>
-                <p>
-                  {totalSlots > 0
-                    ? `${totalSlots} weekly time slot${totalSlots > 1 ? "s" : ""} added`
-                    : "No availability added yet."}
-                </p>
-              </div>
-            </div>
+    <div className="page page-with-savebar edit-profile-page">
+      <section className="edit-profile-shell">
+        <section className="edit-profile-hero">
+          <div className="edit-profile-hero-copy">
+            <span className="edit-profile-kicker">Profile Settings</span>
+            <h1>Edit Profile</h1>
+            <p>
+              Refine how learners see you. Update your identity, academic
+              details, teaching style, and weekly availability in one clean
+              workspace.
+            </p>
           </div>
 
-          <div className="card">
-            <h2 className="card-title">Profile Details</h2>
+          <div className="edit-profile-hero-actions">
+            <Link to="/dashboard" className="edit-profile-secondary-link">
+              Back to Dashboard
+            </Link>
+          </div>
+        </section>
 
-            <div className="form-grid">
-              <div>
-                <label className="label edit-label">Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  placeholder="Your name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
+        <nav className="edit-profile-section-nav" aria-label="Profile sections">
+          <button type="button" onClick={() => scrollToSection("preview")}>
+            Preview
+          </button>
+          <button type="button" onClick={() => scrollToSection("details")}>
+            Profile
+          </button>
+          <button type="button" onClick={() => scrollToSection("bio")}>
+            Bio
+          </button>
+          <button type="button" onClick={() => scrollToSection("availability")}>
+            Availability
+          </button>
 
-              <div className="grid grid-2">
-                <div>
-                  <label className="label edit-label">Department</label>
-                  <input
-                    type="text"
-                    name="department"
-                    placeholder="Department"
-                    value={formData.department}
-                    onChange={handleChange}
-                  />
+          <span className={hasUnsavedChanges ? "is-unsaved" : "is-saved"}>
+            {hasUnsavedChanges ? "Unsaved changes" : "All changes saved"}
+          </span>
+        </nav>
+
+        <form onSubmit={handleSaveProfile}>
+          <div className="edit-profile-layout">
+            <section
+              id="preview"
+              className="edit-profile-card edit-profile-preview-card"
+            >
+              <div className="edit-profile-preview-left">
+                <div className="edit-profile-card-header">
+                  <div>
+                    <span className="edit-profile-kicker">Live Preview</span>
+                    <h2>Public Profile</h2>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="label edit-label">Semester</label>
-                  <input
-                    type="text"
-                    name="semester"
-                    placeholder="Semester"
-                    value={formData.semester}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
+                <div className="edit-profile-preview-identity">
+                  <div className="edit-profile-avatar-ring">
+                    {avatarPreview ? (
+                      <img
+                        src={avatarPreview}
+                        alt={formData.name || "Profile"}
+                        className="edit-profile-avatar"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <div className="edit-profile-avatar edit-profile-avatar-fallback">
+                        {formData.name?.charAt(0)?.toUpperCase() || "U"}
+                      </div>
+                    )}
+                  </div>
 
-              <div>
-                <label className="label edit-label">Avatar Image URL</label>
-                <div className="avatar-upload-box">
-                  <input
-                    type="text"
-                    name="avatar"
-                    placeholder="Paste image URL for your avatar"
-                    value={formData.avatar}
-                    onChange={handleChange}
-                  />
-                  <div className="avatar-upload-hint">
-                    Use a direct image link so your profile looks more professional.
+                  <div className="edit-profile-preview-main">
+                    <h3>{formData.name || "Your Name"}</h3>
+                    <p>{user?.email || "your@email.com"}</p>
+
+                    <div className="edit-profile-chip-row">
+                      {formData.department && (
+                        <span className="edit-profile-chip">
+                          {formData.department}
+                        </span>
+                      )}
+                      {formData.semester && (
+                        <span className="edit-profile-chip">
+                          Semester {formData.semester}
+                        </span>
+                      )}
+                      {user?.role && (
+                        <span className="edit-profile-chip">{user.role}</span>
+                      )}
+                      {user?.badge && (
+                        <span className="edit-profile-chip accent">
+                          {user.badge}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <label className="label edit-label">Bio</label>
-                <textarea
-                  name="bio"
-                  placeholder="Tell learners about your background, expertise, and what makes you a good tutor."
-                  value={formData.bio}
-                  onChange={handleChange}
-                  maxLength={500}
-                />
-                <div className="text-counter">{bioCount}/500</div>
-              </div>
+              <div className="edit-profile-preview-stack">
+                <article className="edit-profile-mini-widget">
+                  <span>Bio Preview</span>
+                  <p>{formData.bio || "Your short bio will appear here."}</p>
+                </article>
 
-              <div>
-                <label className="label edit-label">Teaching Style</label>
-                <textarea
-                  name="teachingStyle"
-                  placeholder="Explain how you teach. For example: patient, step-by-step, practical examples, exam-focused..."
-                  value={formData.teachingStyle}
-                  onChange={handleChange}
-                  maxLength={300}
-                />
-                <div className="text-counter">{teachingStyleCount}/300</div>
-              </div>
-            </div>
-
-            <div className="edit-profile-availability-section">
-              <div className="edit-profile-section-header">
-                <div>
-                  <h3 className="edit-profile-section-title">Weekly Availability</h3>
-                  <p className="edit-profile-section-copy">
-                    Add the time slots when you are usually available for sessions.
+                <article className="edit-profile-mini-widget">
+                  <span>Teaching Style Preview</span>
+                  <p>
+                    {formData.teachingStyle ||
+                      "Your teaching style will appear here."}
                   </p>
+                </article>
+
+                <article className="edit-profile-mini-widget">
+                  <span>Availability Preview</span>
+                  <p>
+                    {totalSlots > 0
+                      ? `${totalSlots} weekly time slot${
+                          totalSlots > 1 ? "s" : ""
+                        } added`
+                      : "No availability added yet."}
+                  </p>
+                </article>
+              </div>
+
+              <div className="edit-profile-checklist">
+                <span className="edit-profile-kicker">Completion Checklist</span>
+
+                <div className="edit-profile-checklist-grid">
+                  {completedItems.map((item) => (
+                    <div
+                      key={item.label}
+                      className={item.done ? "is-complete" : "is-missing"}
+                    >
+                      <span>{item.done ? "✓" : "×"}</span>
+                      {item.label}
+                    </div>
+                  ))}
                 </div>
               </div>
+            </section>
 
-              <div className="availability-editor">
-                {availability.map((dayItem) => (
-                  <div key={dayItem.day} className="availability-day-card">
-                    <div className="availability-day-header">
-                      <div className="availability-day-title">{dayItem.day}</div>
+            <main className="edit-profile-main">
+              <section id="details" className="edit-profile-card">
+                <div className="edit-profile-card-header">
+                  <div>
+                    <span className="edit-profile-kicker">Profile Details</span>
+                    <h2>Basic Information</h2>
+                    <p>
+                      Keep this information clear, accurate, and easy for
+                      learners to scan.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="edit-profile-form-grid">
+                  <div className="edit-profile-field">
+                    <label>Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      placeholder="Your name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+
+                  <div className="edit-profile-two-column">
+                    <div className="edit-profile-field">
+                      <label>Department</label>
+                      <input
+                        type="text"
+                        name="department"
+                        placeholder="Department"
+                        value={formData.department}
+                        onChange={handleChange}
+                      />
+                    </div>
+
+                    <div className="edit-profile-field">
+                      <label>Semester</label>
+                      <input
+                        type="text"
+                        name="semester"
+                        placeholder="Semester"
+                        value={formData.semester}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="edit-profile-field">
+                    <label>Avatar Image URL</label>
+                    <div className="edit-profile-upload-box">
+                      <input
+                        type="text"
+                        name="avatar"
+                        placeholder="Paste image URL for your avatar"
+                        value={formData.avatar}
+                        onChange={handleChange}
+                      />
+                      <p>
+                        Use a direct image link for a sharper, more professional
+                        profile preview.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section id="bio" className="edit-profile-card">
+                <div className="edit-profile-card-header">
+                  <div>
+                    <span className="edit-profile-kicker">Profile Story</span>
+                    <h2>Bio & Teaching Style</h2>
+                    <p>
+                      Help learners understand your background, approach, and
+                      teaching personality.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="edit-profile-form-grid">
+                  <div className="edit-profile-field">
+                    <div className="edit-profile-label-row">
+                      <label>Bio</label>
+                      <span>{bioCount}/500</span>
+                    </div>
+                    <textarea
+                      name="bio"
+                      placeholder="Tell learners about your background, expertise, and what makes you a good tutor."
+                      value={formData.bio}
+                      onChange={handleChange}
+                      maxLength={500}
+                    />
+                  </div>
+
+                  <div className="edit-profile-field">
+                    <div className="edit-profile-label-row">
+                      <label>Teaching Style</label>
+                      <span>{teachingStyleCount}/300</span>
+                    </div>
+                    <textarea
+                      name="teachingStyle"
+                      placeholder="Explain how you teach. For example: patient, step-by-step, practical examples, exam-focused..."
+                      value={formData.teachingStyle}
+                      onChange={handleChange}
+                      maxLength={300}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section id="availability" className="edit-profile-card">
+                <div className="edit-profile-card-header">
+                  <div>
+                    <span className="edit-profile-kicker">
+                      Weekly Availability
+                    </span>
+                    <h2>Session Schedule</h2>
+                    <p>
+                      Add the weekly time slots when you are usually available
+                      for learners.
+                    </p>
+                  </div>
+
+                  <div className="edit-profile-total-pill">
+                    {totalSlots} slot{totalSlots === 1 ? "" : "s"}
+                  </div>
+                </div>
+
+                <div className="edit-profile-preset-row">
+                  {SLOT_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => handleApplyPreset(preset)}
+                    >
+                      + {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="edit-profile-availability-accordion">
+                  <div className="edit-profile-day-list">
+                    {availability.map((dayItem) => (
+                      <button
+                        key={dayItem.day}
+                        type="button"
+                        className={
+                          activeDay === dayItem.day
+                            ? "edit-profile-day-tab active"
+                            : "edit-profile-day-tab"
+                        }
+                        onClick={() => setActiveDay(dayItem.day)}
+                      >
+                        <strong>{dayItem.day}</strong>
+                        <span>
+                          {dayItem.slots.length === 0
+                            ? "No slots"
+                            : `${dayItem.slots.length} slot${
+                                dayItem.slots.length === 1 ? "" : "s"
+                              }`}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="edit-profile-active-day-panel">
+                    <div className="edit-profile-active-day-header">
+                      <div>
+                        <h3>{activeDayData.day}</h3>
+                        <p>
+                          {activeDayData.slots.length === 0
+                            ? "No availability set for this day."
+                            : `${activeDayData.slots.length} slot${
+                                activeDayData.slots.length === 1 ? "" : "s"
+                              } available.`}
+                        </p>
+                      </div>
+
                       <button
                         type="button"
-                        className="secondary"
-                        onClick={() => handleAddSlot(dayItem.day)}
+                        className="edit-profile-small-action"
+                        onClick={() => handleAddSlot(activeDayData.day)}
                       >
                         Add Slot
                       </button>
                     </div>
 
-                    {dayItem.slots.length === 0 ? (
-                      <div className="availability-empty">
-                        No time slots added for {dayItem.day}.
+                    {activeDayData.slots.length === 0 ? (
+                      <div className="edit-profile-empty-slot">
+                        No time slots added for {activeDayData.day}.
                       </div>
                     ) : (
-                      <div className="availability-slot-list">
-                        {dayItem.slots.map((slot, slotIndex) => (
-                          <div key={`${dayItem.day}-${slotIndex}`} className="availability-slot-row">
+                      <div className="edit-profile-slot-list">
+                        {activeDayData.slots.map((slot, slotIndex) => (
+                          <div
+                            key={`${activeDayData.day}-${slotIndex}`}
+                            className="edit-profile-slot-row"
+                          >
                             <input
                               type="time"
                               value={slot.start}
                               onChange={(e) =>
                                 handleAvailabilityChange(
-                                  dayItem.day,
+                                  activeDayData.day,
                                   slotIndex,
                                   "start",
                                   e.target.value
@@ -385,14 +598,14 @@ function EditProfile() {
                               }
                             />
 
-                            <span className="availability-slot-separator">to</span>
+                            <span>to</span>
 
                             <input
                               type="time"
                               value={slot.end}
                               onChange={(e) =>
                                 handleAvailabilityChange(
-                                  dayItem.day,
+                                  activeDayData.day,
                                   slotIndex,
                                   "end",
                                   e.target.value
@@ -402,8 +615,10 @@ function EditProfile() {
 
                             <button
                               type="button"
-                              className="danger"
-                              onClick={() => handleRemoveSlot(dayItem.day, slotIndex)}
+                              className="edit-profile-remove-action"
+                              onClick={() =>
+                                handleRemoveSlot(activeDayData.day, slotIndex)
+                              }
                             >
                               Remove
                             </button>
@@ -412,35 +627,42 @@ function EditProfile() {
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+              </section>
+            </main>
           </div>
-        </div>
 
-        <div className="save-bar">
-          <div className="save-bar-content">
-            <div>
-              <div className="save-bar-title">Ready to save your profile?</div>
-              <div className="save-bar-subtitle">
-                Your public tutor profile and weekly availability update after saving.
+          <div className="edit-profile-savebar">
+            <div className="edit-profile-savebar-content">
+              <div>
+                <strong>
+                  {hasUnsavedChanges
+                    ? "You have unsaved changes"
+                    : "Profile is up to date"}
+                </strong>
+                <p>
+                  Your public profile and weekly availability will update after
+                  saving.
+                </p>
               </div>
-            </div>
 
-            <div className="save-bar-actions">
-              <Link to="/dashboard">
-                <button type="button" className="secondary">
+              <div className="edit-profile-savebar-actions">
+                <Link to="/dashboard" className="edit-profile-cancel-action">
                   Cancel
-                </button>
-              </Link>
+                </Link>
 
-              <button type="submit" disabled={saving}>
-                {saving ? "Saving..." : "Save Profile"}
-              </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="edit-profile-save-action"
+                >
+                  {saving ? "Saving..." : "Save Profile"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </form>
+        </form>
+      </section>
     </div>
   );
 }
