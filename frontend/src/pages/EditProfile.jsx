@@ -30,6 +30,7 @@ function EditProfile() {
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
+  const [currentAvatar, setCurrentAvatar] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -77,6 +78,7 @@ function EditProfile() {
         });
 
         setFormData(nextFormData);
+        setCurrentAvatar(profileRes.data.avatar || "");
         setAvailability(mergedAvailability);
         setInitialSnapshot(
           buildSnapshot(nextFormData, mergedAvailability, profileRes.data.avatar || "")
@@ -203,6 +205,8 @@ function EditProfile() {
 
       const updatedUser = avatarRes?.data?.user || profileRes.data.user;
 
+      setCurrentAvatar(updatedUser?.avatar || currentAvatar);
+
       setUser((prev) => ({
         ...prev,
         ...updatedUser,
@@ -221,7 +225,7 @@ function EditProfile() {
       }
 
       setInitialSnapshot(
-        buildSnapshot(formData, availability, updatedUser?.avatar || user?.avatar || "")
+        buildSnapshot(formData, availability, updatedUser?.avatar || currentAvatar || "")
       );
       setAvatarFile(null);
       setAvatarPreviewUrl("");
@@ -247,8 +251,8 @@ function EditProfile() {
   };
 
   const avatarPreview = useMemo(() => {
-    return avatarPreviewUrl || user?.avatar || "";
-  }, [avatarPreviewUrl, user?.avatar]);
+    return avatarPreviewUrl || currentAvatar || user?.avatar || "";
+  }, [avatarPreviewUrl, currentAvatar, user?.avatar]);
 
   const bioCount = formData.bio.length;
   const teachingStyleCount = formData.teachingStyle.length;
@@ -261,9 +265,9 @@ function EditProfile() {
     return buildSnapshot(
       formData,
       availability,
-      avatarFile?.name || user?.avatar || ""
+      avatarFile?.name || currentAvatar || user?.avatar || ""
     );
-  }, [formData, availability, avatarFile, user?.avatar]);
+  }, [formData, availability, avatarFile, currentAvatar, user?.avatar]);
 
   const hasUnsavedChanges = initialSnapshot && currentSnapshot !== initialSnapshot;
 
@@ -482,6 +486,9 @@ function EditProfile() {
                             src={avatarPreview}
                             alt="Avatar preview"
                             className="edit-profile-avatar-upload-img"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
                           />
                         ) : (
                           <div className="edit-profile-avatar-upload-fallback">
@@ -503,12 +510,12 @@ function EditProfile() {
                             </span>
 
                             <span className="edit-profile-upload-name">
-  {avatarFile
-    ? avatarFile.name
-    : avatarPreview
-    ? "Current avatar"
-    : "No file selected"}
-</span>
+                              {avatarFile
+                                ? avatarFile.name
+                                : avatarPreview
+                                ? "Current avatar"
+                                : "No file selected"}
+                            </span>
                           </label>
 
                           <p>
