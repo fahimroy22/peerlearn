@@ -28,21 +28,24 @@ function EditProfile() {
   const [activeDay, setActiveDay] = useState("Mon");
   const [initialSnapshot, setInitialSnapshot] = useState("");
 
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
+
   const [formData, setFormData] = useState({
     name: "",
     department: "",
     semester: "",
-    avatar: "",
     bio: "",
     teachingStyle: "",
   });
 
   const [availability, setAvailability] = useState(createEmptyAvailability());
 
-  const buildSnapshot = (profileData, availabilityData) =>
+  const buildSnapshot = (profileData, availabilityData, avatarValue = "") =>
     JSON.stringify({
       formData: profileData,
       availability: availabilityData,
+      avatar: avatarValue,
     });
 
   useEffect(() => {
@@ -57,7 +60,6 @@ function EditProfile() {
           name: profileRes.data.name || "",
           department: profileRes.data.department || "",
           semester: profileRes.data.semester || "",
-          avatar: profileRes.data.avatar || "",
           bio: profileRes.data.bio || "",
           teachingStyle: profileRes.data.teachingStyle || "",
         };
@@ -76,7 +78,9 @@ function EditProfile() {
 
         setFormData(nextFormData);
         setAvailability(mergedAvailability);
-        setInitialSnapshot(buildSnapshot(nextFormData, mergedAvailability));
+        setInitialSnapshot(
+          buildSnapshot(nextFormData, mergedAvailability, profileRes.data.avatar || "")
+        );
 
         const firstActiveDay =
           mergedAvailability.find((item) => item.slots.length > 0)?.day || "Mon";
@@ -97,6 +101,20 @@ function EditProfile() {
       ...prev,
       [e.target.name]: e.target.value,
     }));
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast("Please select an image file", "error");
+      return;
+    }
+
+    setAvatarFile(file);
+    setAvatarPreviewUrl(URL.createObjectURL(file));
   };
 
   const handleAvailabilityChange = (day, slotIndex, field, value) => {
@@ -167,16 +185,27 @@ function EditProfile() {
     try {
       const cleanedAvailability = cleanAvailability(availability);
 
-      const [profileRes] = await Promise.all([
+      const avatarUploadData = new FormData();
+
+      if (avatarFile) {
+        avatarUploadData.append("avatar", avatarFile);
+      }
+
+      const [profileRes, , avatarRes] = await Promise.all([
         api.put("/users/profile", formData),
         api.patch("/availability", {
           availability: cleanedAvailability,
         }),
+        avatarFile
+          ? api.post("/users/profile/avatar", avatarUploadData)
+          : Promise.resolve(null),
       ]);
+
+      const updatedUser = avatarRes?.data?.user || profileRes.data.user;
 
       setUser((prev) => ({
         ...prev,
-        ...profileRes.data.user,
+        ...updatedUser,
       }));
 
       const storedUser = localStorage.getItem("user");
@@ -186,12 +215,17 @@ function EditProfile() {
           "user",
           JSON.stringify({
             ...parsed,
-            ...profileRes.data.user,
+            ...updatedUser,
           })
         );
       }
 
-      setInitialSnapshot(buildSnapshot(formData, availability));
+      setInitialSnapshot(
+        buildSnapshot(formData, availability, updatedUser?.avatar || user?.avatar || "")
+      );
+      setAvatarFile(null);
+      setAvatarPreviewUrl("");
+
       showToast("Profile and availability updated successfully", "success");
       navigate("/dashboard");
     } catch (error) {
@@ -213,8 +247,8 @@ function EditProfile() {
   };
 
   const avatarPreview = useMemo(() => {
-    return formData.avatar?.trim() || user?.avatar || "";
-  }, [formData.avatar, user?.avatar]);
+    return avatarPreviewUrl || user?.avatar || "";
+  }, [avatarPreviewUrl, user?.avatar]);
 
   const bioCount = formData.bio.length;
   const teachingStyleCount = formData.teachingStyle.length;
@@ -224,8 +258,12 @@ function EditProfile() {
   }, [availability]);
 
   const currentSnapshot = useMemo(() => {
-    return buildSnapshot(formData, availability);
-  }, [formData, availability]);
+    return buildSnapshot(
+      formData,
+      availability,
+      avatarFile?.name || user?.avatar || ""
+    );
+  }, [formData, availability, avatarFile, user?.avatar]);
 
   const hasUnsavedChanges = initialSnapshot && currentSnapshot !== initialSnapshot;
 
@@ -436,19 +474,48 @@ function EditProfile() {
                   </div>
 
                   <div className="edit-profile-field">
-                    <label>Avatar Image URL</label>
+                    <label>Avatar Image</label>
                     <div className="edit-profile-upload-box">
-                      <input
-                        type="text"
-                        name="avatar"
-                        placeholder="Paste image URL for your avatar"
-                        value={formData.avatar}
-                        onChange={handleChange}
-                      />
-                      <p>
-                        Use a direct image link for a sharper, more professional
-                        profile preview.
-                      </p>
+                      <div className="edit-profile-avatar-upload-preview">
+                        {avatarPreview ? (
+                          <img
+                            src={avatarPreview}
+                            alt="Avatar preview"
+                            className="edit-profile-avatar-upload-img"
+                          />
+                        ) : (
+                          <div className="edit-profile-avatar-upload-fallback">
+                            {formData.name?.charAt(0)?.toUpperCase() || "U"}
+                          </div>
+                        )}
+
+                        <div className="edit-profile-avatar-upload-content">
+                          <label className="edit-profile-custom-upload">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleAvatarChange}
+                              className="edit-profile-hidden-file-input"
+                            />
+
+                            <span className="edit-profile-upload-button">
+                              Choose Image
+                            </span>
+
+                            <span className="edit-profile-upload-name">
+  {avatarFile
+    ? avatarFile.name
+    : avatarPreview
+    ? "Current avatar"
+    : "No file selected"}
+</span>
+                          </label>
+
+                          <p>
+                            Upload a JPG, PNG, or WEBP image from your device.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

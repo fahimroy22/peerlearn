@@ -113,7 +113,7 @@ const updateUserProfile = async (req, res) => {
     user.name = req.body.name ?? user.name;
     user.department = req.body.department ?? user.department;
     user.semester = req.body.semester ?? user.semester;
-    user.avatar = req.body.avatar ?? user.avatar;
+    //user.avatar = req.body.avatar ?? user.avatar;
     user.bio = req.body.bio ?? user.bio;
     user.teachingStyle = req.body.teachingStyle ?? user.teachingStyle;
 
@@ -140,7 +140,11 @@ const uploadProfileAvatar = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const uploaded = await uploadToCloudinary(req.file.buffer, "peerlearn/avatars");
+    const uploaded = await uploadToCloudinary(
+  req.file.buffer,
+  "peerlearn/avatars"
+);
+
 user.avatar = uploaded.secure_url;
     const updatedUser = await user.save();
 
