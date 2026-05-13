@@ -57,17 +57,28 @@ function LearnListings() {
     }
   };
 
-  useEffect(() => { fetchData(); }, [user]);
+  useEffect(() => {
+    fetchData();
+  }, [user]);
 
   const filteredBrowseListings = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return browseListings;
     return browseListings.filter((listing) => {
       const searchableText = [
-        listing.skillName, listing.description, listing.preferredMode,
-        String(listing.budget ?? ""), listing.availability, listing.status,
-        listing.learner?.name, listing.learner?.email, listing.learner?.publicId,
-      ].filter(Boolean).join(" ").toLowerCase();
+        listing.skillName,
+        listing.description,
+        listing.preferredMode,
+        String(listing.budget ?? ""),
+        listing.availability,
+        listing.status,
+        listing.learner?.name,
+        listing.learner?.email,
+        listing.learner?.publicId,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
       return searchableText.includes(q);
     });
   }, [browseListings, searchTerm]);
@@ -82,7 +93,13 @@ function LearnListings() {
         ...listingForm,
         budget: Number(listingForm.budget) || 0,
       });
-      setListingForm({ skillName: "", description: "", preferredMode: "online", budget: "", availability: "" });
+      setListingForm({
+        skillName: "",
+        description: "",
+        preferredMode: "online",
+        budget: "",
+        availability: "",
+      });
       setActiveTab("my-listings");
       showToast("Learner listing created successfully", "success");
       fetchData();
@@ -99,7 +116,6 @@ function LearnListings() {
     }));
   };
 
-  /* ── EXACT ORIGINAL handleSendOffer — triggers notifications ── */
   const handleSendOffer = async (listingId) => {
     const form = offerForms[listingId] || {};
     try {
@@ -123,7 +139,6 @@ function LearnListings() {
     }
   };
 
-  /* ── EXACT ORIGINAL handleAcceptOffer — triggers notifications ── */
   const handleAcceptOffer = async (offerId) => {
     try {
       await api.patch(`/tutor-offers/${offerId}/accept`);
@@ -157,7 +172,11 @@ function LearnListings() {
       setDeletingListingId(selectedListingId);
       await api.delete(`/learn-listings/${selectedListingId}`);
       setMyListings((prev) => prev.filter((l) => l._id !== selectedListingId));
-      setOffersByListing((prev) => { const n = { ...prev }; delete n[selectedListingId]; return n; });
+      setOffersByListing((prev) => {
+        const n = { ...prev };
+        delete n[selectedListingId];
+        return n;
+      });
       setBrowseListings((prev) => prev.filter((l) => l._id !== selectedListingId));
       showToast("Learner listing deleted successfully", "success");
     } catch (error) {
@@ -171,314 +190,578 @@ function LearnListings() {
   };
 
   const tabs = [
-    { id: "browse", label: "Browse" },
-    ...(user?.role === "learner" ? [
-      { id: "create", label: "Post a Need" },
-      { id: "my-listings", label: "My Listings" },
-    ] : []),
-    ...(user?.role === "tutor" ? [
-      { id: "my-offers", label: "My Offers" },
-    ] : []),
+    { id: "browse", label: "Browse", count: browseListings.length },
+    ...(user?.role === "learner"
+      ? [
+          { id: "create", label: "Post a Need" },
+          { id: "my-listings", label: "My Listings", count: myListings.length },
+        ]
+      : []),
+    ...(user?.role === "tutor"
+      ? [{ id: "my-offers", label: "My Offers", count: myOffers.length }]
+      : []),
   ];
 
-  return (
-    <div className="page ls-page">
+  const openListingsCount = browseListings.filter((listing) => listing.status === "open").length;
+  const totalOffersCount = Object.values(offersByListing).reduce(
+    (sum, offers) => sum + (Array.isArray(offers) ? offers.length : 0),
+    0
+  );
 
-      {/* PAGE HEADER */}
-      <div className="ls-page-header">
-        <div className="ls-page-header-left">
-          <span className="ls-eyebrow">Learner Requests</span>
-          <h1 className="ls-page-title">Learn Listings</h1>
-          <p className="ls-page-sub">
-            Learners post what they want to learn. Tutors review and respond with offers.
+  const getStatusBadgeClass = (status) => {
+    if (status === "open") return "learn-status-badge status-open";
+    if (status === "matched") return "learn-status-badge status-matched";
+    if (status === "closed") return "learn-status-badge status-closed";
+    if (status === "accepted") return "learn-status-badge status-open";
+    if (status === "pending") return "learn-status-badge status-pending";
+    if (status === "rejected") return "learn-status-badge status-closed";
+    return "learn-status-badge status-info";
+  };
+
+  const StatusIcon = ({ status }) => {
+    if (status === "open" || status === "accepted") {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+          <path d="M7.5 12L10.5 15L16.5 9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+
+    if (status === "closed" || status === "rejected") {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+          <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        </svg>
+      );
+    }
+
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.7" />
+        <path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+    );
+  };
+
+  const LearnIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3L22 8L12 13L2 8L12 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 10.5V15.5C6 17.16 8.69 18.5 12 18.5C15.31 18.5 18 17.16 18 15.5V10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M22 8V14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+
+  return (
+    <div className="page learn-page">
+      <div className="learn-hero">
+        <div className="learn-hero-content">
+          <div className="learn-hero-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3L22 8L12 13L2 8L12 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M6 10.5V15.5C6 17.16 8.69 18.5 12 18.5C15.31 18.5 18 17.16 18 15.5V10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M22 8V14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
+          <h1 className="learn-hero-title">Learn Listings</h1>
+          <p className="learn-hero-subtitle">
+            Learners post what they want to learn. Tutors review needs and respond with personalized offers.
           </p>
+        </div>
+
+        <div className="learn-stats">
+          <div className="learn-stat-card learn-stat-primary">
+            <div className="learn-stat-icon">
+              <LearnIcon />
+            </div>
+            <div className="learn-stat-content">
+              <div className="learn-stat-value">{browseListings.length}</div>
+              <div className="learn-stat-label">Total Listings</div>
+            </div>
+          </div>
+
+          <div className="learn-stat-card learn-stat-info">
+            <div className="learn-stat-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M8 12H16M12 8V16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="learn-stat-content">
+              <div className="learn-stat-value">{openListingsCount}</div>
+              <div className="learn-stat-label">Open Needs</div>
+            </div>
+          </div>
+
+          <div className="learn-stat-card learn-stat-success">
+            <div className="learn-stat-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M8.5 19H8C4 19 2 18 2 13V8C2 4 4 2 8 2H16C20 2 22 4 22 8V13C22 17 20 19 16 19H15.5C15.19 19 14.89 19.15 14.7 19.4L13.2 21.4C12.54 22.28 11.46 22.28 10.8 21.4L9.3 19.4C9.14 19.18 8.77 19 8.5 19Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M7 8H17M7 13H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="learn-stat-content">
+              <div className="learn-stat-value">{user?.role === "learner" ? totalOffersCount : myOffers.length}</div>
+              <div className="learn-stat-label">{user?.role === "learner" ? "Received Offers" : "My Offers"}</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* TABS */}
-      <div className="ls-tabs">
-        {tabs.map((t) => (
-          <button key={t.id} className={`ls-tab ${activeTab === t.id ? "is-active" : ""}`}
-            onClick={() => setActiveTab(t.id)}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <div className="learn-controls">
+        <div className="learn-tabs">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              className={`learn-tab ${activeTab === t.id ? "active" : ""}`}
+              onClick={() => setActiveTab(t.id)}
+            >
+              <span className="learn-tab-icon">
+                <LearnIcon />
+              </span>
+              <span className="learn-tab-label">{t.label}</span>
+              {typeof t.count === "number" && t.count > 0 && (
+                <span className="learn-tab-count">{t.count}</span>
+              )}
+            </button>
+          ))}
+        </div>
 
-      {/* ══ BROWSE ══ */}
-      {activeTab === "browse" && (
-        <div>
-          <div className="ls-search-bar">
-            <span className="ls-search-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+        {activeTab === "browse" && (
+          <div className="learn-search-box">
+            <span className="learn-search-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M11.5 21C16.7467 21 21 16.7467 21 11.5C21 6.25329 16.7467 2 11.5 2C6.25329 2 2 6.25329 2 11.5C2 16.7467 6.25329 21 11.5 21Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M22 22L20 20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
-            <input type="text" placeholder="Search by skill, learner name, mode, budget…"
-              value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+            <input
+              type="text"
+              placeholder="Search by skill, learner name, mode, budget…"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="learn-search-input"
+            />
             {searchTerm && (
-              <button className="ls-search-clear" onClick={() => setSearchTerm("")}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              <button
+                type="button"
+                className="learn-search-clear"
+                onClick={() => setSearchTerm("")}
+                aria-label="Clear search"
+              >
+                ✕
               </button>
             )}
           </div>
+        )}
+      </div>
 
-          <div className="ls-results-meta">
-            <span className="ls-results-count">
-              <strong>{filteredBrowseListings.length}</strong> of <strong>{browseListings.length}</strong> listings
+      {activeTab === "browse" && (
+        <div>
+          <div className="learn-results-meta">
+            <span>
+              <strong>{filteredBrowseListings.length}</strong> of{" "}
+              <strong>{browseListings.length}</strong> listings
             </span>
+            {searchTerm && (
+              <span>
+                for <em>"{searchTerm}"</em>
+              </span>
+            )}
           </div>
 
           {filteredBrowseListings.length === 0 ? (
-            <div className="ls-empty">
-              <div className="ls-empty-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-                </svg>
+            <div className="learn-empty">
+              <div className="learn-empty-icon">
+                <LearnIcon />
               </div>
-              <div className="ls-empty-title">No listings found</div>
-              <div className="ls-empty-sub">Try a different search term.</div>
+              <h3 className="learn-empty-title">No listings found</h3>
+              <p className="learn-empty-text">Try a different search term.</p>
             </div>
           ) : (
-            <div className="ls-grid">
+            <div className="learn-grid">
               {filteredBrowseListings.map((listing, idx) => (
-                <div key={listing._id} className="ls-card" style={{ "--card-i": idx }}>
-                  <div className="ls-card-body">
-                    <div className="ls-skill-row">
-                      <h3 className="ls-skill">{listing.skillName}</h3>
-                      <div className="ls-tags ls-tags-col">
-                        <span className="ls-tag ls-tag-amber">{listing.preferredMode}</span>
-                        <span className={`ls-tag ${listing.status === "open" ? "ls-tag-green" : "ls-tag-gray"}`}>
+                <article key={listing._id} className="learn-card learn-card-animate" style={{ "--card-i": idx }}>
+                  <div className="learn-card-glow"></div>
+
+                  <div className="learn-card-header">
+                    <div className="learn-header-top">
+                      <div className="learn-type-badge">
+                        <LearnIcon />
+                        Learning Need
+                      </div>
+
+                      <div className="learn-badges-cluster">
+                        <span className={getStatusBadgeClass(listing.status)}>
+                          <StatusIcon status={listing.status} />
                           {listing.status}
+                        </span>
+                        <span className="learn-mode-badge">{listing.preferredMode}</span>
+                      </div>
+                    </div>
+
+                    <h2 className="learn-title-new">{listing.skillName}</h2>
+                    <p className="learn-subtitle-new">{listing.description}</p>
+                  </div>
+
+                  <div className="learn-quick-info">
+                    <div className="learn-info-item learn-info-primary">
+                      <div className="learn-info-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M20.59 22C20.59 18.13 16.74 15 12 15C7.26 15 3.41 18.13 3.41 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <div className="learn-info-content">
+                        <span className="learn-info-label">Learner</span>
+                        <span className="learn-info-value">{listing.learner?.name || "N/A"}</span>
+                      </div>
+                    </div>
+
+                    <div className="learn-info-item">
+                      <div className="learn-info-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 2V22M17 5.5H9.5C8.12 5.5 7 6.62 7 8C7 9.38 8.12 10.5 9.5 10.5H14.5C15.88 10.5 17 11.62 17 13C17 14.38 15.88 15.5 14.5 15.5H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <div className="learn-info-content">
+                        <span className="learn-info-label">Budget</span>
+                        <span className="learn-info-value">
+                          {listing.budget > 0 ? `৳ ${listing.budget}` : "Open"}
                         </span>
                       </div>
                     </div>
-                    <p className="ls-desc">{listing.description}</p>
-                  </div>
 
-                  <div className="ls-stats-row">
-                    <div className="ls-stat-box">
-                      <span className="ls-stat-label">Budget</span>
-                      <span className="ls-stat-val ls-price">
-                        {listing.budget > 0 ? `৳ ${listing.budget}` : "Open"}
-                      </span>
-                    </div>
-                    <div className="ls-stat-box">
-                      <span className="ls-stat-label">Availability</span>
-                      <span className="ls-stat-val">{listing.availability || "Flexible"}</span>
+                    <div className="learn-info-item">
+                      <div className="learn-info-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <path d="M8 2V5M16 2V5M3.5 9.09H20.5M21 8.5V17C21 20 19.5 22 16 22H8C4.5 22 3 20 3 17V8.5C3 5.5 4.5 3.5 8 3.5H16C19.5 3.5 21 5.5 21 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <div className="learn-info-content">
+                        <span className="learn-info-label">Availability</span>
+                        <span className="learn-info-value">{listing.availability || "Flexible"}</span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="ls-learner-chip">
-                    <span className="ls-learner-dot" />
-                    <div className="ls-learner-info">
-                      <span className="ls-learner-name">{listing.learner?.name}</span>
-                      <span className="ls-learner-meta">
-                        {listing.learner?.email} · {listing.learner?.publicId || "—"}
-                      </span>
+                  <div className="learn-learner-strip">
+                    <span className="learn-learner-dot" />
+                    <div className="learn-learner-info">
+                      <span className="learn-learner-name">{listing.learner?.email || "No email"}</span>
+                      <span className="learn-learner-meta">{listing.learner?.publicId || "No ID yet"}</span>
                     </div>
                   </div>
 
                   {user?.role === "tutor" && (
-                    <div className="ls-card-footer">
+                    <div className="learn-actions-row">
                       {expandedOfferId === listing._id ? (
-                        <div className="ls-offer-form">
-                          <div className="ls-offer-form-head">
-                            <span>Your Offer</span>
-                            <button className="ls-offer-cancel" onClick={() => setExpandedOfferId(null)}>
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+                        <div className="learn-offer-panel">
+                          <div className="learn-offer-panel-header">
+                            <h3 className="learn-offer-title">Your Offer</h3>
+                            <button className="learn-icon-btn" onClick={() => setExpandedOfferId(null)}>
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                              </svg>
                             </button>
                           </div>
-                          <textarea placeholder="Write your offer message…" rows={3}
-                            value={offerForms[listing._id]?.message || ""}
-                            onChange={(e) => handleOfferChange(listing._id, "message", e.target.value)} />
-                          <div className="ls-offer-row">
-                            <div className="ls-field">
-                              <label>Price (৳)</label>
-                              <input type="number" placeholder="0"
-                                value={offerForms[listing._id]?.proposedPrice || ""}
-                                onChange={(e) => handleOfferChange(listing._id, "proposedPrice", e.target.value)} />
+
+                          <div className="learn-offer-form">
+                            <div className="learn-form-field learn-form-field-full">
+                              <label>Message</label>
+                              <textarea
+                                placeholder="Write your offer message…"
+                                rows={3}
+                                value={offerForms[listing._id]?.message || ""}
+                                onChange={(e) =>
+                                  handleOfferChange(listing._id, "message", e.target.value)
+                                }
+                              />
                             </div>
-                            <div className="ls-field">
+
+                            <div className="learn-form-field">
+                              <label>Price (৳)</label>
+                              <input
+                                type="number"
+                                placeholder="0"
+                                value={offerForms[listing._id]?.proposedPrice || ""}
+                                onChange={(e) =>
+                                  handleOfferChange(listing._id, "proposedPrice", e.target.value)
+                                }
+                              />
+                            </div>
+
+                            <div className="learn-form-field">
                               <label>Mode</label>
-                              <div className="ls-select-wrap">
-                                <select value={offerForms[listing._id]?.proposedMode || "online"}
-                                  onChange={(e) => handleOfferChange(listing._id, "proposedMode", e.target.value)}>
-                                  <option value="online">Online</option>
-                                  <option value="offline">Offline</option>
-                                  <option value="both">Both</option>
-                                </select>
-                                <svg className="ls-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                              </div>
+                              <select
+                                value={offerForms[listing._id]?.proposedMode || "online"}
+                                onChange={(e) =>
+                                  handleOfferChange(listing._id, "proposedMode", e.target.value)
+                                }
+                              >
+                                <option value="online">Online</option>
+                                <option value="offline">Offline</option>
+                                <option value="both">Both</option>
+                              </select>
+                            </div>
+
+                            <div className="learn-form-actions">
+                              <button
+                                type="button"
+                                className="learn-panel-submit"
+                                onClick={() => handleSendOffer(listing._id)}
+                              >
+                                Send Offer
+                              </button>
                             </div>
                           </div>
-                          <button className="ls-btn-primary" onClick={() => handleSendOffer(listing._id)}>
-                            Send Offer
-                          </button>
                         </div>
                       ) : (
-                        <button className="ls-btn-primary" onClick={() => setExpandedOfferId(listing._id)}>
+                        <button
+                          className="learn-action-btn learn-action-primary"
+                          onClick={() => setExpandedOfferId(listing._id)}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <path d="M5 12H19M12 5L19 12L12 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
                           Make an Offer
                         </button>
                       )}
                     </div>
                   )}
-                </div>
+                </article>
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* ══ CREATE ══ */}
       {activeTab === "create" && user?.role === "learner" && (
-        <div className="ls-create-card">
-          <div className="ls-create-card-head">
-            <h2 className="ls-card-title">Post a Learning Need</h2>
-            <p className="ls-card-sub">Tell tutors what you want to learn and they'll send you offers.</p>
+        <div className="learn-create-panel">
+          <div className="learn-panel-header">
+            <LearnIcon />
+            <div>
+              <h2 className="learn-panel-title">Post a Learning Need</h2>
+              <p className="learn-panel-subtitle">Tell tutors what you want to learn and they will send you offers.</p>
+            </div>
           </div>
-          <form className="ls-create-form" onSubmit={handleCreateListing}>
-            <div className="ls-form-row">
-              <div className="ls-field">
+
+          <form className="learn-create-form" onSubmit={handleCreateListing}>
+            <div className="learn-create-grid">
+              <div className="learn-form-field">
                 <label>Skill you want to learn</label>
-                <input type="text" name="skillName" placeholder="e.g. React, Calculus, Python…"
-                  value={listingForm.skillName} onChange={handleListingChange} required />
+                <input
+                  type="text"
+                  name="skillName"
+                  placeholder="e.g. React, Calculus, Python…"
+                  value={listingForm.skillName}
+                  onChange={handleListingChange}
+                  required
+                />
               </div>
-              <div className="ls-field">
+
+              <div className="learn-form-field">
                 <label>Budget (৳)</label>
-                <input type="number" name="budget" placeholder="0 = Open to offers"
-                  value={listingForm.budget} onChange={handleListingChange} />
+                <input
+                  type="number"
+                  name="budget"
+                  placeholder="0 = Open to offers"
+                  value={listingForm.budget}
+                  onChange={handleListingChange}
+                />
               </div>
-            </div>
-            <div className="ls-field ls-field-full">
-              <label>Description</label>
-              <textarea name="description" placeholder="Describe your learning goals, current level, and what help you need…"
-                value={listingForm.description} onChange={handleListingChange} required rows={3} />
-            </div>
-            <div className="ls-form-row">
-              <div className="ls-field">
+
+              <div className="learn-form-field learn-form-field-full">
+                <label>Description</label>
+                <textarea
+                  name="description"
+                  placeholder="Describe your learning goals, current level, and what help you need…"
+                  value={listingForm.description}
+                  onChange={handleListingChange}
+                  required
+                  rows={3}
+                />
+              </div>
+
+              <div className="learn-form-field">
                 <label>Preferred Mode</label>
-                <div className="ls-select-wrap">
-                  <select name="preferredMode" value={listingForm.preferredMode} onChange={handleListingChange}>
-                    <option value="online">Online</option>
-                    <option value="offline">Offline</option>
-                    <option value="both">Both</option>
-                  </select>
-                  <svg className="ls-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
-                </div>
+                <select
+                  name="preferredMode"
+                  value={listingForm.preferredMode}
+                  onChange={handleListingChange}
+                >
+                  <option value="online">Online</option>
+                  <option value="offline">Offline</option>
+                  <option value="both">Both</option>
+                </select>
               </div>
-              <div className="ls-field">
+
+              <div className="learn-form-field">
                 <label>Availability</label>
-                <input type="text" name="availability" placeholder="e.g. Weekday evenings, weekends…"
-                  value={listingForm.availability} onChange={handleListingChange} />
+                <input
+                  type="text"
+                  name="availability"
+                  placeholder="e.g. Weekday evenings, weekends…"
+                  value={listingForm.availability}
+                  onChange={handleListingChange}
+                />
               </div>
             </div>
-            <div className="ls-form-actions">
-              <button type="submit" className="ls-btn-primary">Post Listing</button>
+
+            <div className="learn-form-actions">
+              <button type="submit" className="learn-panel-submit">
+                Post Listing
+              </button>
             </div>
           </form>
         </div>
       )}
 
-      {/* ══ MY LISTINGS ══ */}
       {activeTab === "my-listings" && user?.role === "learner" && (
         <div>
           {myListings.length === 0 ? (
-            <div className="ls-empty">
-              <div className="ls-empty-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                </svg>
+            <div className="learn-empty">
+              <div className="learn-empty-icon">
+                <LearnIcon />
               </div>
-              <div className="ls-empty-title">No listings yet</div>
-              <div className="ls-empty-sub">Post your first learning need to get offers from tutors.</div>
-              <button className="ls-btn-primary ls-btn-sm" onClick={() => setActiveTab("create")}>Post a Need</button>
+              <h3 className="learn-empty-title">No listings yet</h3>
+              <p className="learn-empty-text">Post your first learning need to get offers from tutors.</p>
+              <button className="learn-action-btn learn-action-primary" onClick={() => setActiveTab("create")}>
+                Post a Need
+              </button>
             </div>
           ) : (
-            <div className="ls-my-listings">
-              {myListings.map((listing) => {
+            <div className="learn-my-list">
+              {myListings.map((listing, idx) => {
                 const isDeleting = deletingListingId === listing._id;
                 const offers = offersByListing[listing._id] || [];
                 return (
-                  <div key={listing._id} className="ls-my-listing-card">
-                    <div className="ls-my-listing-head">
-                      <div className="ls-skill-row">
-                        <h3 className="ls-skill">{listing.skillName}</h3>
-                        <div className="ls-tags ls-tags-col">
-                          <span className="ls-tag ls-tag-amber">{listing.preferredMode}</span>
-                          <span className={`ls-tag ${listing.status === "open" ? "ls-tag-green" : "ls-tag-gray"}`}>
+                  <article key={listing._id} className="learn-owner-card learn-card-animate" style={{ "--card-i": idx }}>
+                    <div className="learn-card-glow"></div>
+
+                    <div className="learn-card-header">
+                      <div className="learn-header-top">
+                        <div className="learn-type-badge">
+                          <LearnIcon />
+                          My Need
+                        </div>
+                        <div className="learn-badges-cluster">
+                          <span className={getStatusBadgeClass(listing.status)}>
+                            <StatusIcon status={listing.status} />
                             {listing.status}
                           </span>
+                          <span className="learn-mode-badge">{listing.preferredMode}</span>
                         </div>
                       </div>
-                      <p className="ls-desc">{listing.description}</p>
+
+                      <h2 className="learn-title-new">{listing.skillName}</h2>
+                      <p className="learn-subtitle-new">{listing.description}</p>
                     </div>
 
-                    <div className="ls-stats-row ls-stats-row-3">
-                      <div className="ls-stat-box">
-                        <span className="ls-stat-label">Budget</span>
-                        <span className="ls-stat-val ls-price">{listing.budget > 0 ? `৳ ${listing.budget}` : "Open"}</span>
+                    <div className="learn-quick-info learn-owner-info">
+                      <div className="learn-info-item learn-info-primary">
+                        <div className="learn-info-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2V22M17 5.5H9.5C8.12 5.5 7 6.62 7 8C7 9.38 8.12 10.5 9.5 10.5H14.5C15.88 10.5 17 11.62 17 13C17 14.38 15.88 15.5 14.5 15.5H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </div>
+                        <div className="learn-info-content">
+                          <span className="learn-info-label">Budget</span>
+                          <span className="learn-info-value">{listing.budget > 0 ? `৳ ${listing.budget}` : "Open"}</span>
+                        </div>
                       </div>
-                      <div className="ls-stat-box">
-                        <span className="ls-stat-label">Availability</span>
-                        <span className="ls-stat-val">{listing.availability || "Flexible"}</span>
+
+                      <div className="learn-info-item">
+                        <div className="learn-info-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M8 2V5M16 2V5M3.5 9.09H20.5M21 8.5V17C21 20 19.5 22 16 22H8C4.5 22 3 20 3 17V8.5C3 5.5 4.5 3.5 8 3.5H16C19.5 3.5 21 5.5 21 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </div>
+                        <div className="learn-info-content">
+                          <span className="learn-info-label">Availability</span>
+                          <span className="learn-info-value">{listing.availability || "Flexible"}</span>
+                        </div>
                       </div>
-                      <div className="ls-stat-box">
-                        <span className="ls-stat-label">Offers</span>
-                        <span className="ls-stat-val">{offers.length}</span>
+
+                      <div className="learn-info-item">
+                        <div className="learn-info-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="M8.5 19H8C4 19 2 18 2 13V8C2 4 4 2 8 2H16C20 2 22 4 22 8V13C22 17 20 19 16 19H15.5C15.19 19 14.89 19.15 14.7 19.4L13.2 21.4C12.54 22.28 11.46 22.28 10.8 21.4L9.3 19.4C9.14 19.18 8.77 19 8.5 19Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </div>
+                        <div className="learn-info-content">
+                          <span className="learn-info-label">Offers</span>
+                          <span className="learn-info-value">{offers.length}</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="ls-my-listing-actions">
-                      {listing.status === "open" && (
-                        <button className="ls-btn-ghost ls-btn-sm" onClick={() => handleCloseListing(listing._id)}>
-                          Close Listing
+                    <div className="learn-actions-row">
+                      <div className="learn-actions-left">
+                        {listing.status === "open" && (
+                          <button
+                            className="learn-action-btn learn-action-secondary"
+                            onClick={() => handleCloseListing(listing._id)}
+                          >
+                            Close Listing
+                          </button>
+                        )}
+                        <button
+                          className="learn-action-btn learn-action-danger"
+                          onClick={() => handleDeleteListing(listing._id)}
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? "Deleting..." : "Delete"}
                         </button>
-                      )}
-                      <button className="ls-btn-danger ls-btn-sm"
-                        onClick={() => handleDeleteListing(listing._id)} disabled={isDeleting}>
-                        {isDeleting ? "Deleting…" : "Delete"}
-                      </button>
+                      </div>
                     </div>
 
                     {offers.length > 0 && (
-                      <div className="ls-offers-section">
-                        <div className="ls-offers-title">
+                      <div className="learn-offers-section">
+                        <div className="learn-section-title">
                           {offers.length} Tutor {offers.length === 1 ? "Offer" : "Offers"}
                         </div>
-                        <div className="ls-offers-grid">
+                        <div className="learn-offers-grid">
                           {offers.map((offer) => (
-                            <div key={offer._id} className={`ls-offer-card ${offer.status === "accepted" ? "is-accepted" : ""}`}>
-                              {offer.status === "accepted" && (
-                                <div className="ls-offer-accepted-badge">✓ Accepted</div>
-                              )}
-                              <div className="ls-offer-top">
+                            <div
+                              key={offer._id}
+                              className={`learn-offer-card ${offer.status === "accepted" ? "is-accepted" : ""}`}
+                            >
+                              <div className="learn-offer-top">
                                 <div>
-                                  <div className="ls-offer-name">{offer.tutor?.name}</div>
-                                  <div className="ls-offer-pid">{offer.tutor?.publicId || "—"}</div>
+                                  <div className="learn-offer-name">{offer.tutor?.name}</div>
+                                  <div className="learn-offer-id">{offer.tutor?.publicId || "—"}</div>
                                 </div>
-                                <div className="ls-offer-rating">
-                                  <span className="ls-tag ls-tag-green">⭐ {offer.tutor?.ratingAvg?.toFixed?.(1) ?? 0}</span>
-                                  <span className="ls-offer-reviews">{offer.tutor?.ratingCount ?? 0} reviews</span>
-                                </div>
-                              </div>
-                              <div className="ls-offer-stats">
-                                <div className="ls-offer-stat">
-                                  <span className="ls-stat-label">Price</span>
-                                  <span className="ls-offer-val ls-price">৳ {offer.proposedPrice || 0}</span>
-                                </div>
-                                <div className="ls-offer-stat">
-                                  <span className="ls-stat-label">Mode</span>
-                                  <span className="ls-offer-val">{offer.proposedMode}</span>
+                                <div className="learn-offer-badges">
+                                  <span className={getStatusBadgeClass(offer.status)}>
+                                    <StatusIcon status={offer.status} />
+                                    {offer.status}
+                                  </span>
+                                  <span className="learn-mode-badge">⭐ {offer.tutor?.ratingAvg?.toFixed?.(1) ?? 0}</span>
                                 </div>
                               </div>
-                              {offer.message && <p className="ls-offer-msg">{offer.message}</p>}
-                              <div className="ls-offer-actions">
-                                <Link className="ls-btn-ghost ls-btn-sm" to={`/tutor-profile/${offer.tutor?._id}`}>
+
+                              <div className="learn-offer-mini-grid">
+                                <div className="learn-offer-mini">
+                                  <span>Price</span>
+                                  <strong>৳ {offer.proposedPrice || 0}</strong>
+                                </div>
+                                <div className="learn-offer-mini">
+                                  <span>Mode</span>
+                                  <strong>{offer.proposedMode}</strong>
+                                </div>
+                              </div>
+
+                              {offer.message && <p className="learn-offer-message">{offer.message}</p>}
+
+                              <div className="learn-offer-actions">
+                                <Link className="learn-link-btn" to={`/tutor-profile/${offer.tutor?._id}`}>
                                   View Profile
                                 </Link>
                                 {listing.status === "open" && offer.status === "pending" && (
-                                  <button className="ls-btn-primary ls-btn-sm" onClick={() => handleAcceptOffer(offer._id)}>
+                                  <button
+                                    className="learn-action-btn learn-action-primary"
+                                    onClick={() => handleAcceptOffer(offer._id)}
+                                  >
                                     Accept Tutor
                                   </button>
                                 )}
@@ -488,7 +771,7 @@ function LearnListings() {
                         </div>
                       </div>
                     )}
-                  </div>
+                  </article>
                 );
               })}
             </div>
@@ -496,54 +779,83 @@ function LearnListings() {
         </div>
       )}
 
-      {/* ══ MY OFFERS ══ */}
       {activeTab === "my-offers" && user?.role === "tutor" && (
         <div>
           {myOffers.length === 0 ? (
-            <div className="ls-empty">
-              <div className="ls-empty-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
+            <div className="learn-empty">
+              <div className="learn-empty-icon">
+                <LearnIcon />
               </div>
-              <div className="ls-empty-title">No offers sent yet</div>
-              <div className="ls-empty-sub">Browse learner listings and send your first offer.</div>
-              <button className="ls-btn-primary ls-btn-sm" onClick={() => setActiveTab("browse")}>Browse Listings</button>
+              <h3 className="learn-empty-title">No offers sent yet</h3>
+              <p className="learn-empty-text">Browse learner listings and send your first offer.</p>
+              <button className="learn-action-btn learn-action-primary" onClick={() => setActiveTab("browse")}>
+                Browse Listings
+              </button>
             </div>
           ) : (
-            <div className="ls-grid">
+            <div className="learn-grid">
               {myOffers.map((offer, idx) => (
-                <div key={offer._id} className={`ls-card ${offer.status === "accepted" ? "ls-card-accepted" : ""}`} style={{ "--card-i": idx }}>
-                  <div className="ls-card-body">
-                    <div className="ls-skill-row">
-                      <h3 className="ls-skill">{offer.learnListing?.skillName || "Learner Request"}</h3>
-                      <div className="ls-tags ls-tags-col">
-                        <span className="ls-tag ls-tag-amber">{offer.proposedMode}</span>
-                        <span className={`ls-tag ${offer.status === "accepted" ? "ls-tag-green" : "ls-tag-blue"}`}>
+                <article
+                  key={offer._id}
+                  className={`learn-card learn-card-animate ${offer.status === "accepted" ? "is-accepted" : ""}`}
+                  style={{ "--card-i": idx }}
+                >
+                  <div className="learn-card-glow"></div>
+
+                  <div className="learn-card-header">
+                    <div className="learn-header-top">
+                      <div className="learn-type-badge">
+                        <LearnIcon />
+                        My Offer
+                      </div>
+                      <div className="learn-badges-cluster">
+                        <span className={getStatusBadgeClass(offer.status)}>
+                          <StatusIcon status={offer.status} />
                           {offer.status}
                         </span>
+                        <span className="learn-mode-badge">{offer.proposedMode}</span>
                       </div>
                     </div>
-                    <p className="ls-desc">{offer.message}</p>
+
+                    <h2 className="learn-title-new">{offer.learnListing?.skillName || "Learner Request"}</h2>
+                    <p className="learn-subtitle-new">{offer.message || "No message provided."}</p>
                   </div>
-                  <div className="ls-stats-row">
-                    <div className="ls-stat-box">
-                      <span className="ls-stat-label">Your Price</span>
-                      <span className="ls-stat-val ls-price">৳ {offer.proposedPrice || 0}</span>
+
+                  <div className="learn-quick-info">
+                    <div className="learn-info-item learn-info-primary">
+                      <div className="learn-info-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 2V22M17 5.5H9.5C8.12 5.5 7 6.62 7 8C7 9.38 8.12 10.5 9.5 10.5H14.5C15.88 10.5 17 11.62 17 13C17 14.38 15.88 15.5 14.5 15.5H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <div className="learn-info-content">
+                        <span className="learn-info-label">Your Price</span>
+                        <span className="learn-info-value">৳ {offer.proposedPrice || 0}</span>
+                      </div>
                     </div>
-                    <div className="ls-stat-box">
-                      <span className="ls-stat-label">Learner</span>
-                      <span className="ls-stat-val">{offer.learnListing?.learner?.name || "—"}</span>
+
+                    <div className="learn-info-item">
+                      <div className="learn-info-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M20.59 22C20.59 18.13 16.74 15 12 15C7.26 15 3.41 18.13 3.41 22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <div className="learn-info-content">
+                        <span className="learn-info-label">Learner</span>
+                        <span className="learn-info-value">{offer.learnListing?.learner?.name || "—"}</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="ls-learner-chip">
-                    <span className="ls-learner-dot" />
-                    <div className="ls-learner-info">
-                      <span className="ls-learner-name">{offer.learnListing?.learner?.email}</span>
-                      <span className="ls-learner-meta">{offer.learnListing?.description || "No description"}</span>
+
+                  <div className="learn-learner-strip">
+                    <span className="learn-learner-dot" />
+                    <div className="learn-learner-info">
+                      <span className="learn-learner-name">{offer.learnListing?.learner?.email}</span>
+                      <span className="learn-learner-meta">{offer.learnListing?.description || "No description"}</span>
                     </div>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}

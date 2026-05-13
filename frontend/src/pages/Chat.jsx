@@ -53,10 +53,19 @@ function Chat() {
 
       setSessionDetails({
         otherPerson,
-        skillName: session.request?.listing?.skillName || "No skill attached",
+        skillName:
+          session.sessionType === "exchange"
+            ? `${session.exchangeRequest?.exchange?.offerSkill || "Exchange"} ↔ ${
+                session.exchangeRequest?.exchange?.wantSkill || "Session"
+              }`
+            : session.request?.listing?.skillName || "No skill attached",
         skillDescription:
           session.request?.listing?.description ||
+          session.exchangeRequest?.message ||
           "Session details and learning goals will appear here.",
+        sessionType: session.sessionType || "regular",
+        deliveryMode: session.deliveryMode || "online",
+        status: session.status || "scheduled",
       });
 
       if (session?.roomUrl && session.roomUrl.includes("meet.google.com")) {
@@ -127,18 +136,25 @@ function Chat() {
     [messages, user?._id]
   );
 
-  const headerName =
-    sessionDetails?.otherPerson?.name || firstOtherUser?.name || "Session Chat";
+  const getAvatarUrl = (person) => {
+    const avatar = person?.avatar || person?.profileImage || person?.image || "";
+    if (!avatar) return "";
+    return avatar.startsWith("http") ? avatar : `${API_BASE_URL}${avatar}`;
+  };
 
-  const headerId =
-    sessionDetails?.otherPerson?.publicId ||
-    firstOtherUser?.publicId ||
-    "Live conversation";
+  const headerPerson = sessionDetails?.otherPerson || firstOtherUser;
+  const headerName = headerPerson?.name || "Session Chat";
+  const headerId = headerPerson?.publicId || "Live conversation";
+  const headerAvatar = getAvatarUrl(headerPerson);
 
   const skillName = sessionDetails?.skillName || "No skill attached";
   const skillDescription =
     sessionDetails?.skillDescription ||
     "Session details and learning goals will appear here.";
+
+  const sessionType = sessionDetails?.sessionType || "regular";
+  const deliveryMode = sessionDetails?.deliveryMode || "online";
+  const sessionStatus = sessionDetails?.status || "scheduled";
 
   const meetLink = roomUrl && roomUrl.includes("meet.google.com") ? roomUrl : "";
 
@@ -235,7 +251,7 @@ function Chat() {
         <div className="chat-attachment-file-icon">
           {attachment.fileType === "document" ? "📄" : "📎"}
         </div>
-        <div>
+        <div className="chat-attachment-file-copy">
           <div className="chat-attachment-file-name">
             {attachment.fileName || "Attachment"}
           </div>
@@ -289,34 +305,87 @@ function Chat() {
 
   const firstUnreadIndex = messages.findIndex((msg) => isUnreadForCurrentUser(msg));
 
+  const renderAvatar = (className = "") => {
+    if (headerAvatar) {
+      return (
+        <img
+          src={headerAvatar}
+          alt={headerName}
+          className={`ww-avatar-img ${className}`}
+        />
+      );
+    }
+
+    return (
+      <div className={`ww-avatar-init ${className}`}>
+        {headerName?.charAt(0)?.toUpperCase() || "C"}
+      </div>
+    );
+  };
+
   return (
-    <div className="page">
+    <div className="page chat-page">
       <div className="ww-layout">
         <aside className="ww-sidebar">
           <div className="ww-sidebar-header">
-            <div className="ww-avatar-lg ww-avatar-animated">
-              {headerName?.charAt(0)?.toUpperCase() || "C"}
-            </div>
+            <div className="ww-avatar-lg">{renderAvatar("ww-avatar-lg-media")}</div>
             <div className="ww-sidebar-header-info">
               <div className="ww-sidebar-title">{headerName}</div>
               <div className="ww-sidebar-subtitle">@{headerId}</div>
               <div className="ww-status-badge">
                 <span className="ww-status-dot"></span>
-                Active Session
+                {sessionStatus === "scheduled" ? "Active Session" : sessionStatus}
               </div>
             </div>
           </div>
 
           <div className="ww-sidebar-card ww-skill-card">
-            <div className="ww-card-icon">📚</div>
-            <div className="ww-info-label">Learning Focus</div>
-            <div className="ww-skill-name">{skillName}</div>
+            <div className="ww-card-heading">
+              <div className="ww-card-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 6.5V21M12 6.5C10.85 5.45 9.32 4.85 7.75 4.85H4.5C3.67 4.85 3 5.52 3 6.35V17.85C3 18.68 3.67 19.35 4.5 19.35H7.75C9.32 19.35 10.85 19.95 12 21M12 6.5C13.15 5.45 14.68 4.85 16.25 4.85H19.5C20.33 4.85 21 5.52 21 6.35V17.85C21 18.68 20.33 19.35 19.5 19.35H16.25C14.68 19.35 13.15 19.95 12 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div>
+                <div className="ww-info-label">Learning Focus</div>
+                <div className="ww-skill-name">{skillName}</div>
+              </div>
+            </div>
             <div className="ww-skill-description">{skillDescription}</div>
           </div>
 
+          <div className="ww-sidebar-card">
+            <div className="ww-card-heading">
+              <div className="ww-card-icon ww-card-icon-blue">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 22H15C20 22 22 20 22 15V9C22 4 20 2 15 2H9C4 2 2 4 2 9V15C2 20 4 22 9 22Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M8 12H16M12 8V16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div>
+                <div className="ww-info-label">Session Type</div>
+                <div className="ww-skill-name">{sessionType}</div>
+              </div>
+            </div>
+            <div className="ww-meta-pills">
+              <span>{deliveryMode}</span>
+              <span>{sessionStatus}</span>
+            </div>
+          </div>
+
           <div className="ww-sidebar-card ww-sidebar-card--meet">
-            <div className="ww-card-icon">🎥</div>
-            <div className="ww-info-label ww-info-label--meet">Video Session</div>
+            <div className="ww-card-heading">
+              <div className="ww-card-icon ww-card-icon-green">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M17 20.5H7C4 20.5 2 19 2 15.5V8.5C2 5 4 3.5 7 3.5H17C20 3.5 22 5 22 8.5V15.5C22 19 20 20.5 17 20.5Z" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M9.75 15.25V8.75L15.25 12L9.75 15.25Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <div>
+                <div className="ww-info-label ww-info-label--meet">Video Session</div>
+                <div className="ww-skill-name">Google Meet</div>
+              </div>
+            </div>
             {meetLink ? (
               <a
                 href={meetLink}
@@ -324,12 +393,10 @@ function Chat() {
                 rel="noreferrer"
                 className="btn-join-call btn-join-call--pulse"
               >
-                <span className="btn-icon">▶</span>
                 Join Meet Session
               </a>
             ) : (
               <div className="ww-meet-unavailable">
-                <span className="meet-unavailable-icon">⏸</span>
                 No video link available
               </div>
             )}
@@ -337,16 +404,14 @@ function Chat() {
 
           <div className="ww-sidebar-note">
             <div className="ww-note-icon">💡</div>
-            <div>Use this space to coordinate lesson timing, share materials, and plan follow-ups.</div>
+            <div>Coordinate timing, share materials, and keep follow-ups in one clean conversation.</div>
           </div>
         </aside>
 
         <section className="ww-chat-panel">
           <div className="ww-chat-header">
             <div className="ww-chat-header-left">
-              <div className="ww-avatar ww-avatar-animated">
-                {headerName?.charAt(0)?.toUpperCase() || "C"}
-              </div>
+              <div className="ww-avatar">{renderAvatar("ww-avatar-media")}</div>
 
               <div className="ww-chat-header-info">
                 <div className="ww-chat-name">{headerName}</div>
@@ -375,12 +440,11 @@ function Chat() {
                 rel="noreferrer"
                 className="btn-join-call btn-join-call--header"
               >
-                <span className="btn-icon">▶</span>
                 Join Call
               </a>
             ) : (
               <span className="ww-chat-header-meet-note">
-                📹 No active call
+                No active call
               </span>
             )}
           </div>
@@ -395,7 +459,7 @@ function Chat() {
               <div className="empty-state">
                 <div className="empty-state-icon">💬</div>
                 <h3>No messages yet</h3>
-                <p>Start the conversation by sending your first message</p>
+                <p>Start the conversation by sending your first message.</p>
               </div>
             ) : (
               messages.map((msg, index) => {
@@ -498,8 +562,8 @@ function Chat() {
                   {(selectedFile.size / 1024).toFixed(1)} KB
                 </span>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setSelectedFile(null)}
                 className="ww-remove-file"
               >
@@ -517,7 +581,7 @@ function Chat() {
                 aria-label="Attach file"
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M10 5V15M5 10H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M10 5V15M5 10H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </button>
 
@@ -566,13 +630,14 @@ function Chat() {
               }}
             />
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="ww-send-btn"
               disabled={!text.trim() && !selectedFile}
+              aria-label="Send message"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
 
